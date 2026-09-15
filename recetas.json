@@ -1,0 +1,992 @@
+{
+  "meta": {
+    "marca": "FLAMA",
+    "local": "Jujuy 2238 · Rosario",
+    "version": "Versión 1 · Septiembre 2026",
+    "fuentes": [
+      "FLAMA_recetario_productos.pdf",
+      "FLAMA_recetario_produccion.pdf"
+    ],
+    "convenciones": {
+      "cantidad": "Siempre número. Peso en g, volumen en ml, en el campo unidad.",
+      "unidad_pieza": "Cuando el componente se cuenta por piezas (feta, gotas, unidad) la cantidad sigue siendo número y el tipo de pieza va en unidad_pieza.",
+      "produccion_id": "Si un componente es una elaboración propia, referencia al id dentro de producciones.",
+      "subpreparacion_id": "Si un ingrediente o paso depende de una elaboración intermedia, referencia al id dentro de subpreparaciones de esa misma producción.",
+      "unidad_escalado": "Unidad en la que el usuario ingresa la cantidad total a producir en el escalador (kg o g). Las cantidades internas siguen en g/ml.",
+      "advertencia_escalado": "Una nota marcada con advertencia_escalado: true se muestra como aviso destacado junto al escalador."
+    }
+  },
+  "categorias": {
+    "burger": {
+      "titulo": "Burgers",
+      "intro": "Orden de armado desde la base del pan hasta la tapa. Todas llevan 180 g de carne en 2 medallones de 90 g, estilo smash."
+    },
+    "fries": {
+      "titulo": "Fries",
+      "intro": "Todas parten de la misma base: 250 g de papas crispers y 35 g de parmesano rallado en el momento, sobre el plato de salida. Las salsas van chorreadas por encima.",
+      "fritura": {
+        "temperatura": {
+          "valor": 180,
+          "unidad": "°C"
+        },
+        "tiempo": {
+          "min": 3,
+          "max": 4,
+          "unidad": "min"
+        },
+        "etapas": "Una sola",
+        "desde": "Freezer directo a freidora"
+      }
+    }
+  },
+  "productos": [
+    {
+      "id": "cheese-burger",
+      "nombre": "Cheese Burger",
+      "tipo": "burger",
+      "resumen": {
+        "carne": {
+          "cantidad": 180,
+          "unidad": "g"
+        },
+        "salsa": {
+          "cantidad": 30,
+          "unidad": "g"
+        }
+      },
+      "componentes": [
+        {
+          "orden": 1,
+          "componente": "Pan Hobs — base, tostado con manteca",
+          "cantidad": 1,
+          "unidad_pieza": "unidad"
+        },
+        {
+          "orden": 2,
+          "componente": "Emmy's Infusion",
+          "cantidad": 15,
+          "unidad": "g",
+          "produccion_id": "emmys-infusion"
+        },
+        {
+          "orden": 3,
+          "componente": "Medallón ojo de bife angus",
+          "cantidad": 90,
+          "unidad": "g"
+        },
+        {
+          "orden": 4,
+          "componente": "Cheddar",
+          "cantidad": 1,
+          "unidad_pieza": "feta"
+        },
+        {
+          "orden": 5,
+          "componente": "Medallón ojo de bife angus",
+          "cantidad": 90,
+          "unidad": "g"
+        },
+        {
+          "orden": 6,
+          "componente": "Cheddar",
+          "cantidad": 1,
+          "unidad_pieza": "feta"
+        },
+        {
+          "orden": 7,
+          "componente": "Emmy's Infusion",
+          "cantidad": 15,
+          "unidad": "g",
+          "produccion_id": "emmys-infusion"
+        },
+        {
+          "orden": 8,
+          "componente": "Pan Hobs — tapa, tostada con manteca",
+          "cantidad": 1,
+          "unidad_pieza": "unidad"
+        }
+      ],
+      "armado": null
+    },
+    {
+      "id": "cheese-bacon",
+      "nombre": "Cheese Bacon",
+      "tipo": "burger",
+      "resumen": {
+        "carne": {
+          "cantidad": 180,
+          "unidad": "g"
+        },
+        "salsa": {
+          "cantidad": 30,
+          "unidad": "g"
+        }
+      },
+      "componentes": [
+        {
+          "orden": 1,
+          "componente": "Pan Hobs — base, tostado con manteca",
+          "cantidad": 1,
+          "unidad_pieza": "unidad"
+        },
+        {
+          "orden": 2,
+          "componente": "Emmy's Infusion",
+          "cantidad": 15,
+          "unidad": "g",
+          "produccion_id": "emmys-infusion"
+        },
+        {
+          "orden": 3,
+          "componente": "Medallón ojo de bife angus",
+          "cantidad": 90,
+          "unidad": "g"
+        },
+        {
+          "orden": 4,
+          "componente": "Cheddar",
+          "cantidad": 1,
+          "unidad_pieza": "feta"
+        },
+        {
+          "orden": 5,
+          "componente": "Medallón ojo de bife angus",
+          "cantidad": 90,
+          "unidad": "g"
+        },
+        {
+          "orden": 6,
+          "componente": "Cheddar",
+          "cantidad": 1,
+          "unidad_pieza": "feta"
+        },
+        {
+          "orden": 7,
+          "componente": "Panceta Sugardale",
+          "cantidad": 2,
+          "unidad_pieza": "fetas"
+        },
+        {
+          "orden": 8,
+          "componente": "Emmy's Infusion",
+          "cantidad": 15,
+          "unidad": "g",
+          "produccion_id": "emmys-infusion"
+        },
+        {
+          "orden": 9,
+          "componente": "Pan Hobs — tapa, tostada con manteca",
+          "cantidad": 1,
+          "unidad_pieza": "unidad"
+        }
+      ],
+      "armado": "Las fetas de panceta van enteras, sobresaliendo de la hamburguesa."
+    },
+    {
+      "id": "original",
+      "nombre": "Original",
+      "tipo": "burger",
+      "resumen": {
+        "carne": {
+          "cantidad": 180,
+          "unidad": "g"
+        },
+        "salsa": {
+          "cantidad": 30,
+          "unidad": "g"
+        }
+      },
+      "componentes": [
+        {
+          "orden": 1,
+          "componente": "Pan Hobs — base, tostado con manteca",
+          "cantidad": 1,
+          "unidad_pieza": "unidad"
+        },
+        {
+          "orden": 2,
+          "componente": "Salsa Original",
+          "cantidad": 15,
+          "unidad": "g",
+          "produccion_id": "salsa-original"
+        },
+        {
+          "orden": 3,
+          "componente": "Lechuga cortada fina",
+          "cantidad": 12,
+          "unidad": "g"
+        },
+        {
+          "orden": 4,
+          "componente": "Tomate redondo feteado",
+          "cantidad": 18,
+          "unidad": "g"
+        },
+        {
+          "orden": 5,
+          "componente": "Cebolla morada en aros",
+          "cantidad": 8,
+          "unidad": "g"
+        },
+        {
+          "orden": 6,
+          "componente": "Medallón ojo de bife angus",
+          "cantidad": 90,
+          "unidad": "g"
+        },
+        {
+          "orden": 7,
+          "componente": "Cheddar",
+          "cantidad": 1,
+          "unidad_pieza": "feta"
+        },
+        {
+          "orden": 8,
+          "componente": "Medallón ojo de bife angus",
+          "cantidad": 90,
+          "unidad": "g"
+        },
+        {
+          "orden": 9,
+          "componente": "Cheddar",
+          "cantidad": 1,
+          "unidad_pieza": "feta"
+        },
+        {
+          "orden": 10,
+          "componente": "Salsa Original",
+          "cantidad": 15,
+          "unidad": "g",
+          "produccion_id": "salsa-original"
+        },
+        {
+          "orden": 11,
+          "componente": "Pan Hobs — tapa, tostada con manteca",
+          "cantidad": 1,
+          "unidad_pieza": "unidad"
+        }
+      ],
+      "armado": "Los vegetales van debajo de la carne. El medallón reposa sobre el tomate: así el pan de abajo queda aislado y la lechuga no se calienta. Esta burger no lleva panceta."
+    },
+    {
+      "id": "parmesan-fries",
+      "nombre": "Parmesan Fries",
+      "tipo": "fries",
+      "componentes": [
+        {
+          "orden": 1,
+          "componente": "Papas crispers",
+          "cantidad": 250,
+          "unidad": "g"
+        },
+        {
+          "orden": 2,
+          "componente": "Parmesano rallado",
+          "cantidad": 35,
+          "unidad": "g"
+        }
+      ],
+      "emplatado": null
+    },
+    {
+      "id": "spicy-fries",
+      "nombre": "Spicy Fries",
+      "tipo": "fries",
+      "componentes": [
+        {
+          "orden": 1,
+          "componente": "Papas crispers",
+          "cantidad": 250,
+          "unidad": "g"
+        },
+        {
+          "orden": 2,
+          "componente": "Alioli trufado",
+          "cantidad": 40,
+          "unidad": "g",
+          "produccion_id": "lactonesa-trufada"
+        },
+        {
+          "orden": 3,
+          "componente": "Salsa chipotle",
+          "cantidad": 15,
+          "unidad": "g"
+        },
+        {
+          "orden": 4,
+          "componente": "Ralladura de limón",
+          "cantidad": 5,
+          "unidad": "g"
+        },
+        {
+          "orden": 5,
+          "componente": "Parmesano rallado",
+          "cantidad": 35,
+          "unidad": "g"
+        }
+      ],
+      "emplatado": "La ralladura de limón va antes del parmesano. Es lo que diferencia esta línea de la Truffle."
+    },
+    {
+      "id": "truffle-fries",
+      "nombre": "Truffle Fries",
+      "tipo": "fries",
+      "componentes": [
+        {
+          "orden": 1,
+          "componente": "Papas crispers",
+          "cantidad": 250,
+          "unidad": "g"
+        },
+        {
+          "orden": 2,
+          "componente": "Salsa trufada",
+          "cantidad": 40,
+          "unidad": "g",
+          "produccion_id": "lactonesa-trufada"
+        },
+        {
+          "orden": 3,
+          "componente": "Aceite de trufa",
+          "cantidad": 6,
+          "unidad_pieza": "gotas"
+        },
+        {
+          "orden": 4,
+          "componente": "Parmesano rallado",
+          "cantidad": 35,
+          "unidad": "g"
+        }
+      ],
+      "emplatado": "El aceite de trufa va antes del parmesano. Es lo que diferencia esta línea de la Spicy."
+    },
+    {
+      "id": "jam-fries",
+      "nombre": "Jam Fries",
+      "tipo": "fries",
+      "componentes": [
+        {
+          "orden": 1,
+          "componente": "Papas crispers",
+          "cantidad": 250,
+          "unidad": "g"
+        },
+        {
+          "orden": 2,
+          "componente": "Salsa trufada",
+          "cantidad": 40,
+          "unidad": "g",
+          "produccion_id": "lactonesa-trufada"
+        },
+        {
+          "orden": 3,
+          "componente": "Bacon jam",
+          "cantidad": 20,
+          "unidad": "g",
+          "produccion_id": "bacon-jam"
+        },
+        {
+          "orden": 4,
+          "componente": "Parmesano rallado",
+          "cantidad": 35,
+          "unidad": "g"
+        }
+      ],
+      "emplatado": null
+    }
+  ],
+  "producciones": [
+    {
+      "id": "emmys-infusion",
+      "nombre": "Emmy's Infusion",
+      "nombres_alternativos": [],
+      "descripcion": "Va en Cheese Burger y Cheese Bacon · 30 g por unidad (15 + 15)",
+      "usado_en": [
+        "cheese-burger",
+        "cheese-bacon"
+      ],
+      "uso_por_unidad": {
+        "cantidad": 30,
+        "unidad": "g",
+        "detalle": "15 + 15"
+      },
+      "batch": {
+        "cantidad": 1000,
+        "unidad": "g",
+        "texto": "1 kg",
+        "unidad_escalado": "kg"
+      },
+      "rendimiento": {
+        "cantidad": 33,
+        "unidad": "burgers"
+      },
+      "vida_util": {
+        "dias": 5,
+        "texto": "5 días"
+      },
+      "conservacion": "Heladera",
+      "ingredientes": [
+        {
+          "ingrediente": "Mayonesa",
+          "cantidad": 575,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Kétchup",
+          "cantidad": 115,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Manteca",
+          "cantidad": 115,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Salsa de soja",
+          "cantidad": 43,
+          "unidad": "ml"
+        },
+        {
+          "ingrediente": "Azúcar",
+          "cantidad": 43,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Vinagre",
+          "cantidad": 43,
+          "unidad": "ml"
+        },
+        {
+          "ingrediente": "Sésamo negro",
+          "cantidad": 29,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Togarashi",
+          "cantidad": 22,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Ajo picado fino",
+          "cantidad": 17,
+          "unidad": "g"
+        }
+      ],
+      "procedimiento": [
+        {
+          "paso": 1,
+          "titulo": "Tostar el sésamo",
+          "texto": "En sartén seca, a fuego bajo, removiendo, hasta que perfume. No debe quemarse."
+        },
+        {
+          "paso": 2,
+          "titulo": "Dorar el ajo",
+          "texto": "Derretir la manteca a fuego bajo. Agregar el ajo picado y el sésamo tostado. Cocinar removiendo, sin que el ajo tome color, hasta que perfume."
+        },
+        {
+          "paso": 3,
+          "titulo": "Base ácida",
+          "texto": "En un bowl, disolver el azúcar en el vinagre."
+        },
+        {
+          "paso": 4,
+          "titulo": "Integrar el resto",
+          "texto": "Sumar mayonesa, kétchup, togarashi y salsa de soja. Mezclar bien."
+        },
+        {
+          "paso": 5,
+          "titulo": "Unir todo",
+          "texto": "Volcar la manteca con ajo y sésamo, todavía tibia, sobre la mezcla. Batir hasta unificar."
+        },
+        {
+          "paso": 6,
+          "titulo": "Reposo",
+          "texto": "Guardar en recipiente hermético, rotular con fecha y llevar a heladera antes de usar."
+        }
+      ],
+      "notas": {
+        "titulo": "Notas",
+        "items": [
+          "La manteca se vuelca tibia, nunca caliente: si está muy caliente puede cortar la mayonesa.",
+          "El sésamo conviene tostarlo en tanda grande y guardarlo, en lugar de tostar de a poco en cada producción."
+        ]
+      }
+    },
+    {
+      "id": "lactonesa-trufada",
+      "nombre": "Lactonesa trufada",
+      "nombres_alternativos": [
+        "Alioli trufado",
+        "Salsa trufada"
+      ],
+      "descripcion": "En carta sale como alioli trufado en la Spicy y como salsa trufada en Truffle y Jam. Es una sola producción · 40 g por porción",
+      "usado_en": [
+        "spicy-fries",
+        "truffle-fries",
+        "jam-fries"
+      ],
+      "uso_por_unidad": {
+        "cantidad": 40,
+        "unidad": "g",
+        "detalle": null
+      },
+      "batch": {
+        "cantidad": 1000,
+        "unidad": "g",
+        "texto": "1 kg",
+        "unidad_escalado": "kg"
+      },
+      "rendimiento": {
+        "cantidad": 25,
+        "unidad": "porciones"
+      },
+      "vida_util": {
+        "texto": "Producción diaria"
+      },
+      "conservacion": "No se guarda",
+      "ingredientes": [
+        {
+          "ingrediente": "Aceite neutro de girasol",
+          "cantidad": 597,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Leche",
+          "cantidad": 299,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Aceite de trufa",
+          "cantidad": 60,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Ajo rallado",
+          "cantidad": 18,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Sal fina",
+          "cantidad": 12,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Pimienta negra recién molida",
+          "cantidad": 6,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Trufa fresca rallada",
+          "cantidad": 2.5,
+          "unidad": "g"
+        }
+      ],
+      "procedimiento": [
+        {
+          "paso": 1,
+          "titulo": "Triturar el ajo",
+          "texto": "Colocar la leche, la sal y el ajo. Mixear hasta triturar el ajo por completo."
+        },
+        {
+          "paso": 2,
+          "titulo": "Emulsionar",
+          "texto": "Agregar el aceite en forma de hilo hasta lograr una emulsión estable."
+        },
+        {
+          "paso": 3,
+          "titulo": "Terminar",
+          "texto": "Con la emulsión ya estabilizada, sumar el aceite de trufa, la trufa rallada y la pimienta recién molida. Integrar con espátula, sin mixer."
+        }
+      ],
+      "notas": {
+        "titulo": "Puntos de control",
+        "items": [
+          "La cantidad de aceite puede variar algunos gramos según la marca y el tipo de leche y de aceite: no todas emulsionan igual. El ajuste va siempre HACIA ABAJO, nunca hacia arriba.",
+          "La textura final la valida el responsable de cocina en cada batch. Si la considera demasiado trabada, se corrige.",
+          "Leche entera larga vida. Con leche fresca la emulsión se comporta distinto.",
+          "No lleva ácido, así que no se conserva: se produce todos los días la cantidad que se va a usar."
+        ]
+      }
+    },
+    {
+      "id": "salsa-original",
+      "nombre": "Salsa Original",
+      "nombres_alternativos": [],
+      "descripcion": "Va en la burger Original · 30 g por unidad (15 + 15)",
+      "usado_en": [
+        "original"
+      ],
+      "uso_por_unidad": {
+        "cantidad": 30,
+        "unidad": "g",
+        "detalle": "15 + 15"
+      },
+      "batch": {
+        "cantidad": 1000,
+        "unidad": "g",
+        "texto": "1 kg",
+        "unidad_escalado": "kg"
+      },
+      "rendimiento": {
+        "cantidad": 33,
+        "unidad": "burgers"
+      },
+      "vida_util": {
+        "dias": 3,
+        "dias_optimo": 2,
+        "texto": "3 días · óptimo 2"
+      },
+      "conservacion": "Heladera",
+      "ingredientes": [
+        {
+          "ingrediente": "Mayonesa",
+          "cantidad": 641,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Relish de pepino",
+          "cantidad": 126,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Kétchup",
+          "cantidad": 74,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Mostaza",
+          "cantidad": 58,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Cebolla fresca rallada fina",
+          "cantidad": 42,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Vinagre de alcohol",
+          "cantidad": 21,
+          "unidad": "ml"
+        },
+        {
+          "ingrediente": "Ajo fresco, pasta o rallado",
+          "cantidad": 16,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Azúcar",
+          "cantidad": 11,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Pimentón dulce",
+          "cantidad": 6,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Sal fina",
+          "cantidad": 4,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Pimienta",
+          "cantidad": 1,
+          "unidad": "g"
+        }
+      ],
+      "procedimiento": [
+        {
+          "paso": 1,
+          "titulo": "Rallar la cebolla",
+          "texto": "Con zester, lo más fino posible. Escurrir."
+        },
+        {
+          "paso": 2,
+          "titulo": "Macerar",
+          "texto": "Cebolla y ajo en el vinagre, con la sal y el azúcar. 15 minutos."
+        },
+        {
+          "paso": 3,
+          "titulo": "Sumar secos y salsas",
+          "texto": "Agregar mostaza, kétchup, pimentón y pimienta. Mezclar bien."
+        },
+        {
+          "paso": 4,
+          "titulo": "Incorporar la mayonesa",
+          "texto": "Con batidor de mano o paleta. Sin minipimer."
+        },
+        {
+          "paso": 5,
+          "titulo": "Relish al final",
+          "texto": "Integrar con espátula."
+        }
+      ],
+      "notas": {
+        "titulo": "Notas",
+        "items": [
+          "El ajo fresco se va oxidando, por eso la vida útil es corta. Conviene producir en cantidades justas: la receta es simple y se hace rápido.",
+          "La mayonesa nunca va con minipimer: se corta."
+        ]
+      }
+    },
+    {
+      "id": "bacon-jam",
+      "nombre": "Bacon jam",
+      "nombres_alternativos": [],
+      "descripcion": "Va en Jam Fries · 20 g por porción",
+      "usado_en": [
+        "jam-fries"
+      ],
+      "uso_por_unidad": {
+        "cantidad": 20,
+        "unidad": "g",
+        "detalle": null
+      },
+      "batch": {
+        "cantidad": 300,
+        "unidad": "g",
+        "rango": {
+          "min": 300,
+          "max": 330
+        },
+        "texto": "300 a 330 g",
+        "estimado": true,
+        "unidad_escalado": "g"
+      },
+      "rendimiento": {
+        "cantidad": 15,
+        "unidad": "porciones"
+      },
+      "vida_util": {
+        "dias": 7,
+        "texto": "7 días"
+      },
+      "conservacion": "Heladera",
+      "ingredientes": [
+        {
+          "ingrediente": "Panceta premium en cubos chicos",
+          "cantidad": 300,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Cebolla en pluma fina",
+          "cantidad": 150,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Azúcar",
+          "cantidad": 60,
+          "unidad": "g"
+        },
+        {
+          "ingrediente": "Agua",
+          "cantidad": 60,
+          "unidad": "ml"
+        },
+        {
+          "ingrediente": "Vinagre de manzana",
+          "cantidad": 30,
+          "unidad": "ml"
+        },
+        {
+          "ingrediente": "Café fuerte preparado",
+          "cantidad": 20,
+          "unidad": "ml",
+          "subpreparacion_id": "cafe-fuerte"
+        },
+        {
+          "ingrediente": "Ajo picado fino",
+          "cantidad": 6,
+          "unidad": "g"
+        }
+      ],
+      "subpreparaciones": [
+        {
+          "id": "cafe-fuerte",
+          "nombre": "Café fuerte preparado",
+          "ingredientes": [
+            {
+              "ingrediente": "Café molido",
+              "cantidad": 8,
+              "unidad": "g"
+            },
+            {
+              "ingrediente": "Agua",
+              "cantidad": 50,
+              "unidad": "ml",
+              "temperatura": {
+                "min": 92,
+                "max": 96,
+                "unidad": "°C"
+              }
+            }
+          ],
+          "rendimiento": {
+            "cantidad": 40,
+            "unidad": "ml",
+            "aproximado": true
+          },
+          "nota": "Alcanza para dos batches."
+        }
+      ],
+      "procedimiento": [
+        {
+          "paso": 1,
+          "titulo": "Preparar el café",
+          "texto": "Según la sub-preparación Café fuerte preparado.",
+          "subpreparacion_id": "cafe-fuerte"
+        },
+        {
+          "paso": 2,
+          "titulo": "Dorar la panceta",
+          "texto": "En sartén fría, llevar a fuego medio para que suelte la grasa lentamente, hasta que quede dorada y crocante."
+        },
+        {
+          "paso": 3,
+          "titulo": "Sudar cebolla y ajo",
+          "texto": "Retirar el exceso de grasa dejando apenas un poco en la sartén. Agregar la cebolla y el ajo. Cocinar hasta que la cebolla esté blanda y translúcida."
+        },
+        {
+          "paso": 4,
+          "titulo": "Sumar líquidos y azúcar",
+          "texto": "Agregar azúcar, vinagre, café y agua. Mezclar bien y llevar a fuego bajo."
+        },
+        {
+          "paso": 5,
+          "titulo": "Reducir",
+          "texto": "Cocinar a fuego bajo, revolviendo de tanto en tanto, hasta consistencia de mermelada pegajosa. No líquida."
+        },
+        {
+          "paso": 6,
+          "titulo": "Ajustar textura",
+          "texto": "Dejar entibiar. Triturar levemente con tenedor para una textura untable, o dejar con trozos para una más rústica."
+        }
+      ],
+      "notas": {
+        "titulo": "Notas",
+        "items": [
+          "El rendimiento del batch es estimado: hay que pesar el producto final de la primera producción y ajustar el dato.",
+          {
+            "texto": "El tiempo de reducción no escala de forma proporcional. Si se duplica el batch, el tiempo de cocción no se duplica: se controla por textura, no por reloj.",
+            "advertencia_escalado": true
+          }
+        ]
+      }
+    }
+  ],
+  "notas": {
+    "intro": "Criterios que aplican a todos los productos.",
+    "secciones": [
+      {
+        "id": "tomate",
+        "titulo": "Tomate — corte",
+        "items": [
+          {
+            "texto": "Espesor de corte",
+            "valor": 5,
+            "unidad": "mm"
+          },
+          {
+            "texto": "El tomate debe cubrir toda la base del pan. Si una rodaja no alcanza, van dos."
+          },
+          {
+            "texto": "El tomate redondo varía de tamaño y firmeza según la época del año. El responsable de cocina ajusta la cantidad de rodajas para cumplir la regla de cobertura."
+          }
+        ]
+      },
+      {
+        "id": "vegetales",
+        "titulo": "Vegetales — procesamiento",
+        "items": [
+          {
+            "texto": "Se cortan antes de empezar el despacho. No se guardan cortados de un día para el otro."
+          },
+          {
+            "texto": "La lechuga se lava y se seca con secador de verdes. Tiene que quedar completamente seca: si hace falta, ayudarse con papel de bobina. Se corta fina y va a bandeja de inox."
+          },
+          {
+            "texto": "El tomate se lava, se seca bien y se corta. Siempre lo justo para el stock del día."
+          },
+          {
+            "texto": "Si sobra producto cortado, se evalúa el estado y se usa para comida de personal."
+          }
+        ]
+      },
+      {
+        "id": "panceta",
+        "titulo": "Panceta — producción y mantenimiento",
+        "items": [
+          {
+            "texto": "Cocinar en horno hasta el 75%."
+          },
+          {
+            "texto": "Retirar y dejar enfriar el horno."
+          },
+          {
+            "texto": "Poner el horno en temperatura mínima y mantener la panceta en bandeja tapada hasta el armado."
+          },
+          {
+            "texto": "Producir en tandas cortas, lo más cerca posible del servicio."
+          },
+          {
+            "texto": "Al cierre, la panceta sobrante se enfría rápido, se tapa y se guarda en cámara. Se usa al día siguiente en la primera tanda."
+          }
+        ]
+      },
+      {
+        "id": "carne",
+        "titulo": "Carne — picado y porcionado",
+        "items": [
+          {
+            "texto": "El blend es 80% ojo de bife angus y 20% tapa de bife angus de alto marmoleo, con su grasa. El picado es diario, antes de cada despacho."
+          },
+          {
+            "texto": "La proporción del blend es un punto de partida, no una fórmula fija: la carne varía de animal en animal. El responsable de cocina ajusta según cómo venga la pieza."
+          },
+          {
+            "texto": "Se porciona a mano con balanza, pesando uno por uno. Se amasa apenas lo necesario para que el medallón no se desarme al smashear."
+          },
+          {
+            "texto": "Los bollos se arman antes del servicio. Durante el despacho, la carne cruda va solamente de la heladera a la plancha."
+          },
+          {
+            "texto": "Se guardan en la heladera de carne, sin apilar y tapados con folex. Sin apilar para que tomen mejor el frío; tapados para que el frío no queme la carne."
+          },
+          {
+            "texto": "Cuanto más fría entra la carne a la plancha, mejor costra genera. Es la reacción de Maillard."
+          }
+        ]
+      },
+      {
+        "id": "pan",
+        "titulo": "Pan",
+        "items": [
+          {
+            "texto": "Base y tapa pasan por tostadora vertical con manteca."
+          }
+        ]
+      },
+      {
+        "id": "produccion-reglas-generales",
+        "titulo": "Producción — reglas generales",
+        "items": [
+          {
+            "texto": "Todo producto elaborado se rotula con nombre y fecha de producción."
+          },
+          {
+            "texto": "Se guarda siempre en recipiente hermético limpio, con utensilio limpio."
+          },
+          {
+            "texto": "La lactonesa no se guarda: se produce diariamente la cantidad que se va a usar."
+          },
+          {
+            "texto": "Cumplida la vida útil, el producto se descarta. No se evalúa a ojo."
+          },
+          {
+            "texto": "El chipotle es el único aderezo comprado: no se produce en el local."
+          }
+        ]
+      }
+    ]
+  }
+}
