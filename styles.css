@@ -198,6 +198,17 @@ ul.plain li:last-child { border-bottom: none; }
 .stockrow input { width: 100%; font: inherit; font-size: 22px; font-weight: 800; padding: 8px 10px; min-height: 52px; border: 2px solid var(--black); border-radius: 10px; text-align: right; }
 .stockrow.low .name { color: var(--brand); }
 .pedido .q { font-size: 22px; }
+.btnrow.three { grid-template-columns: repeat(3, 1fr); }
+.btnrow.three .btn { font-size: 16px; padding: 10px 6px; }
+.scrollx { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; }
+table.hist td, table.hist th { padding: 10px 8px; }
+table.hist td.q { font-size: 19px; color: var(--gray); font-weight: 600; }
+table.hist td.q.ult { color: var(--black); font-weight: 800; font-size: 21px; }
+table.hist td.q.min { color: var(--gray); font-weight: 600; }
+table.hist tr.low td { background: #fbeef0; }
+table.hist tr.low td.q.ult, table.hist tr.low td b { color: var(--brand); }
+table.hist .sub { color: var(--gray); font-size: 13px; font-weight: 500; }
+table.hist .dash { color: #bbb; }
 
 /* ---------- sub-preparaciones ---------- */
 .tandas {

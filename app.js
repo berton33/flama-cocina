@@ -83,7 +83,7 @@
         return id === 'cargar' ? renderDiaCargar() : renderDia();
       case 'stock':
         topbarSub.textContent = 'Stock';
-        return id === 'pedido' ? renderPedido() : id === 'minimos' ? renderMinimos() : renderStock();
+        return id === 'pedido' ? renderPedido() : id === 'minimos' ? renderMinimos() : id === 'ver' ? renderVerStock() : renderStock();
       default:
         location.hash = '#/';
     }
@@ -517,7 +517,7 @@
 
     const fecha0 = hoyISO();
     let html = `<a class="back" href="#/">‹ Inicio</a><h1>Stock</h1>
-      <div class="btnrow"><a class="btn secondary small" href="#/stock/pedido">Pedido sugerido</a><a class="btn secondary small" href="#/stock/minimos">Mínimos</a></div>
+      <div class="btnrow three"><a class="btn secondary small" href="#/stock/ver">Ver stock</a><a class="btn secondary small" href="#/stock/pedido">Pedido sugerido</a><a class="btn secondary small" href="#/stock/minimos">Mínimos</a></div>
       <div class="card">
         <label class="field"><span>Fecha del conteo</span><input id="fecha" type="date" value="${fecha0}"></label>
         <p class="lede" style="margin:0">Contar en la unidad indicada. Se guarda solo lo que completes; lo vacío no se toca.</p>
@@ -569,6 +569,35 @@
       } catch (e) { status.innerHTML = `<div class="status err">${errorMsg(e)}</div>`; }
       finally { btn.disabled = false; }
     });
+  }
+
+  // ---------- 7b. stock · ver (consulta, solo lectura) ----------
+  async function renderVerStock() {
+    app.innerHTML = `<a class="back" href="#/stock">‹ Stock</a><h1>Ver stock</h1><p class="msg">Cargando…</p>`;
+    let h;
+    try { h = await API.stockHistorial(4); }
+    catch (e) { app.innerHTML = `<a class="back" href="#/stock">‹ Stock</a><h1>Ver stock</h1><div class="status err">${errorMsg(e)}</div>`; return; }
+
+    const fechas = h.fechas || [];
+    let html = `<a class="back" href="#/stock">‹ Stock</a><h1>Ver stock</h1>`;
+    if (!fechas.length) {
+      html += `<div class="card"><p class="msg" style="padding:12px 0">Todavía no hay ningún conteo cargado.</p></div>`;
+      app.innerHTML = html; return;
+    }
+    const bajos = h.insumos.filter((i) => i.minimo != null && i.conteos[fechas[0]] != null && Number(i.conteos[fechas[0]]) < Number(i.minimo)).length;
+    html += `<p class="lede">Último conteo: <b>${esc(fechaLarga(fechas[0]))}</b>. Columnas: últimos ${fechas.length} conteos, del más reciente al más viejo.${bajos ? ` En bordó, <b>${bajos}</b> por debajo del mínimo.` : ''}</p>`;
+    for (const g of groupByRubro(h.insumos)) {
+      html += `<h2>${esc(g.rubro)}</h2><div class="card"><div class="scrollx"><table class="hist"><thead><tr><th>Insumo</th>` +
+        fechas.map((f) => `<th class="q">${esc(fechaCorta(f))}</th>`).join('') + `<th class="q">Mín.</th></tr></thead><tbody>` +
+        g.items.map((i) => {
+          const ult = i.conteos[fechas[0]];
+          const low = i.minimo != null && ult != null && Number(ult) < Number(i.minimo);
+          return `<tr class="${low ? 'low' : ''}"><td><b>${esc(i.nombre)}</b><br><span class="sub">${esc(i.unidad)}</span></td>` +
+            fechas.map((f, idx) => `<td class="q ${idx === 0 ? 'ult' : ''}">${i.conteos[f] != null ? fmt(i.conteos[f]) : '<span class="dash">—</span>'}</td>`).join('') +
+            `<td class="q min">${i.minimo != null ? fmt(i.minimo) : '<span class="dash">—</span>'}</td></tr>`;
+        }).join('') + `</tbody></table></div></div>`;
+    }
+    app.innerHTML = html;
   }
 
   // ---------- 8. stock · pedido sugerido ----------
