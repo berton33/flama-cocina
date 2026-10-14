@@ -260,3 +260,23 @@ insert into flama.insumos (id, nombre, rubro, unidad, orden) values
   ('balde-para-limpieza', 'Balde para limpieza', 'Limpieza', 'unidad', 750),
   ('pulverizador', 'Pulverizador', 'Limpieza', 'unidad', 760)
 on conflict (id) do nothing;
+
+-- ---------- Stock · vista de consulta (últimos N conteos por insumo) ----------
+create or replace function public.flama_stock_historial(p_n int default 4) returns json
+language sql security definer set search_path = flama as $$
+  with fechas as (
+    select f from (select distinct fecha f from flama.conteos order by f desc limit greatest(1, least(coalesce(p_n, 4), 12))) x
+  )
+  select json_build_object(
+    'fechas', coalesce((select json_agg(f order by f desc) from fechas), '[]'::json),
+    'insumos', coalesce((
+      select json_agg(json_build_object(
+        'id', i.id, 'nombre', i.nombre, 'rubro', i.rubro, 'unidad', i.unidad, 'minimo', i.minimo, 'orden', i.orden,
+        'conteos', coalesce((
+          select json_object_agg(c.fecha, c.cantidad)
+          from flama.conteos c where c.insumo_id = i.id and c.fecha in (select f from fechas)), '{}'::json)
+      ) order by i.orden)
+      from flama.insumos i where i.activo), '[]'::json)
+  );
+$$;
+grant execute on function public.flama_stock_historial(int) to anon, authenticated;

@@ -43,6 +43,7 @@
     planGuardar: (p, fecha, nota, items) => rpc('flama_plan_guardar', { p_pin: p, p_fecha: fecha, p_nota: nota, p_items: items }),
     itemMarcar: (id, hecho) => rpc('flama_item_marcar', { p_id: id, p_hecho: hecho }),
     stockGet: () => rpc('flama_stock_get'),
+    stockHistorial: (n) => rpc('flama_stock_historial', { p_n: n || 4 }),
     conteoGet: (fecha) => rpc('flama_conteo_get', { p_fecha: fecha }),
     conteoGuardar: (fecha, items) => rpc('flama_conteo_guardar', { p_fecha: fecha, p_items: items }),
     minimosGuardar: (p, items) => rpc('flama_minimos_guardar', { p_pin: p, p_items: items })
