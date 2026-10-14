@@ -1,44 +1,24 @@
 /* FLAMA · Cocina
- * Recetas: toda la información (nombres, gramajes, procedimientos, notas) viene de recetas.json.
- * Producción del día y stock: datos en Supabase, a través de api.js.
- * Este archivo solo sabe leer esas estructuras y mostrarlas.
+ * Toda la información (nombres, gramajes, procedimientos, notas) viene de recetas.json.
+ * Este archivo solo sabe leer esa estructura y mostrarla.
  */
 (function () {
   'use strict';
 
   const app = document.getElementById('app');
   const topbarSub = document.getElementById('topbar-sub');
-  const API = window.FLAMA_API;
   let DATA = null;
-  let pollTimer = null;
 
   // ---------- utilidades ----------
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // Redondeo a 1 decimal, formato es-AR (coma decimal).
   const fmt = (n) => {
-    const r = Math.round(Number(n) * 10) / 10;
+    const r = Math.round(n * 10) / 10;
     return r.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
   };
-  const num = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return isFinite(n) ? n : null; };
 
   const byId = (list, id) => list.find((x) => x.id === id);
-
-  const hoyISO = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
-  const fechaLarga = (iso) => {
-    if (!iso) return '';
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
-  };
-  const fechaCorta = (iso) => {
-    if (!iso) return '';
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
-  };
-  const hora = (ts) => ts ? new Date(ts).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
 
   // Un componente/ingrediente tiene unidad (g/ml) o unidad_pieza (feta, gotas, unidad).
   function qtyHtml(c, factor) {
@@ -46,12 +26,6 @@
     const q = factor == null ? c.cantidad : c.cantidad * factor;
     return `${fmt(q)}<span class="u"> ${esc(c.unidad)}</span>`;
   }
-
-  const errorMsg = (e) => e && e.code === 'PIN_INCORRECTO' ? 'PIN incorrecto.'
-    : e && e.code === 'PIN_INVALIDO' ? 'El PIN tiene que tener entre 4 y 32 caracteres.'
-    : `No se pudo conectar con la base (${esc(e && e.message)}).`;
-
-  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
   // ---------- rutas ----------
   function parseHash() {
@@ -62,7 +36,6 @@
 
   function route() {
     if (!DATA) return;
-    stopPolling();
     const { section, id } = parseHash();
     window.scrollTo(0, 0);
     switch (section) {
@@ -78,12 +51,6 @@
       case 'notas':
         topbarSub.textContent = 'Notas';
         return renderNotas();
-      case 'dia':
-        topbarSub.textContent = 'Producción del día';
-        return id === 'cargar' ? renderDiaCargar() : renderDia();
-      case 'stock':
-        topbarSub.textContent = 'Stock';
-        return id === 'pedido' ? renderPedido() : id === 'minimos' ? renderMinimos() : renderStock();
       default:
         location.hash = '#/';
     }
@@ -92,12 +59,25 @@
   // ---------- 1. inicio ----------
   function renderInicio() {
     app.innerHTML = `<div class="home">
-      <a href="#/dia">Producción del día</a>
       <a href="#/productos">Productos</a>
       <a href="#/produccion">Producción</a>
-      <a href="#/stock">Stock</a>
       <a href="#/notas">Notas</a>
     </div>`;
+  }
+
+  // ---------- 4. notas generales de cocina ----------
+  function renderNotas() {
+    const n = DATA.notas || {};
+    let html = `<a class="back" href="#/">‹ Inicio</a><h1>Notas de cocina</h1>`;
+    if (n.intro) html += `<p class="lede">${esc(n.intro)}</p>`;
+    for (const s of n.secciones || []) {
+      html += `<h2>${esc(s.titulo)}</h2><div class="card"><ol class="steps">` +
+        s.items.map((it, i) => {
+          const val = it.valor != null ? `: <b>${fmt(it.valor)} ${esc(it.unidad || '')}</b>` : '';
+          return `<li><span class="num">${i + 1}</span><div class="x">${esc(it.texto)}${val}</div></li>`;
+        }).join('') + `</ol></div>`;
+    }
+    app.innerHTML = html;
   }
 
   // ---------- 2. productos ----------
@@ -158,7 +138,7 @@
     app.innerHTML = html;
   }
 
-  // ---------- 3. producción (recetas de salsas) ----------
+  // ---------- 3. producción ----------
   function renderProducciones() {
     app.innerHTML = `<a class="back" href="#/">‹ Inicio</a><h1>Producción</h1><div class="list">` +
       DATA.producciones.map((p) => `
@@ -251,8 +231,8 @@
     const baseIngreso = unidadIngreso === 'kg' ? b.cantidad / 1000 : b.cantidad;
 
     function apply() {
-      const val = num(input.value);
-      const total = val != null && val > 0 ? val : baseIngreso;
+      const val = parseFloat(String(input.value).replace(',', '.'));
+      const total = isFinite(val) && val > 0 ? val : baseIngreso;
       const totalBase = unidadIngreso === 'kg' ? total * 1000 : total;
       const factor = totalBase / b.cantidad;
       rows.forEach((tr) => {
@@ -298,353 +278,6 @@
     });
   }
 
-  // ---------- 4. notas generales de cocina ----------
-  function renderNotas() {
-    const n = DATA.notas || {};
-    let html = `<a class="back" href="#/">‹ Inicio</a><h1>Notas de cocina</h1>`;
-    if (n.intro) html += `<p class="lede">${esc(n.intro)}</p>`;
-    for (const s of n.secciones || []) {
-      html += `<h2>${esc(s.titulo)}</h2><div class="card"><ol class="steps">` +
-        s.items.map((it, i) => {
-          const val = it.valor != null ? `: <b>${fmt(it.valor)} ${esc(it.unidad || '')}</b>` : '';
-          return `<li><span class="num">${i + 1}</span><div class="x">${esc(it.texto)}${val}</div></li>`;
-        }).join('') + `</ol></div>`;
-    }
-    app.innerHTML = html;
-  }
-
-  // ---------- 5. producción del día · vista cocina ----------
-  function nombreProduccion(id) { const p = byId(DATA.producciones, id); return p ? p.nombre : id; }
-
-  async function renderDia() {
-    const fecha = hoyISO();
-    app.innerHTML = `<a class="back" href="#/">‹ Inicio</a><h1>Producción del día</h1>
-      <p class="fecha-label">${esc(fechaLarga(fecha))}</p><p class="msg">Cargando…</p>`;
-
-    const paint = (plan) => {
-      const items = plan.items || [];
-      const hechos = items.filter((i) => i.hecho).length;
-      let html = `<a class="back" href="#/">‹ Inicio</a><h1>Producción del día</h1>
-        <p class="fecha-label">${esc(fechaLarga(fecha))}</p>`;
-      if (!items.length && !plan.nota) {
-        html += `<div class="card"><p class="msg" style="padding:12px 0">No hay producción cargada para hoy.</p></div>`;
-      } else {
-        if (items.length) html += `<p class="progress"><b>${hechos}</b> de <b>${items.length}</b> listas</p>`;
-        html += items.map((i) => `
-          <div class="check ${i.hecho ? 'done' : ''}" data-id="${esc(i.id)}" data-hecho="${i.hecho ? 1 : 0}" role="button" tabindex="0">
-            <div class="box">${i.hecho ? '✓' : ''}</div>
-            <div><div class="name">${esc(nombreProduccion(i.produccion_id))}</div>
-              <div class="sub">${i.hecho ? `Listo ${esc(hora(i.hecho_at))}` : 'Tocar cuando esté hecho'}</div></div>
-            <div class="qty">${fmt(i.cantidad)}<span class="u"> ${esc(i.unidad)}</span></div>
-          </div>`).join('');
-        if (plan.nota) html += `<div class="note"><span class="k">Nota del día</span>${esc(plan.nota)}</div>`;
-      }
-      html += `<div id="dia-status"></div>
-        <a class="btn secondary small" href="#/dia/cargar">Cargar o editar producción</a>`;
-      app.innerHTML = html;
-
-      app.querySelectorAll('.check').forEach((el) => {
-        const toggle = async () => {
-          if (el.classList.contains('busy')) return;
-          el.classList.add('busy');
-          try {
-            const nuevo = await API.itemMarcar(Number(el.dataset.id), el.dataset.hecho !== '1');
-            paint(nuevo);
-          } catch (e) {
-            el.classList.remove('busy');
-            document.getElementById('dia-status').innerHTML = `<div class="status err">${errorMsg(e)}</div>`;
-          }
-        };
-        el.addEventListener('click', toggle);
-        el.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); } });
-      });
-    };
-
-    const load = async () => {
-      try { paint(await API.planGet(fecha)); }
-      catch (e) { app.innerHTML = `<a class="back" href="#/">‹ Inicio</a><h1>Producción del día</h1><div class="status err">${errorMsg(e)}</div>`; }
-    };
-    await load();
-    // Se refresca sola cada 20 s mientras la pantalla esté visible, y al volver a la pestaña.
-    pollTimer = setInterval(() => { if (!document.hidden && parseHash().section === 'dia' && !parseHash().id) load(); }, 20000);
-  }
-
-  // ---------- 6. producción del día · vista de carga (PIN) ----------
-  async function renderDiaCargar() {
-    app.innerHTML = `<a class="back" href="#/dia">‹ Producción del día</a><h1>Cargar producción</h1><p class="msg">Cargando…</p>`;
-    let estado;
-    try { estado = await API.pinEstado(); }
-    catch (e) { app.innerHTML = `<a class="back" href="#/dia">‹ Producción del día</a><h1>Cargar producción</h1><div class="status err">${errorMsg(e)}</div>`; return; }
-    if (!estado.definido) return renderDefinirPin(() => renderDiaCargar());
-
-    const fecha0 = hoyISO();
-    let html = `<a class="back" href="#/dia">‹ Producción del día</a><h1>Cargar producción</h1>
-      <div class="card">
-        <label class="field"><span>Fecha</span><input id="fecha" type="date" value="${fecha0}"></label>
-        <div id="plan-info" class="lede"></div>
-      </div>
-      <h2>Qué se produce</h2><div class="card">` +
-      DATA.producciones.map((p, idx) => {
-        const u = p.batch.unidad_escalado || p.batch.unidad;
-        return `<div class="pick" data-id="${esc(p.id)}" data-orden="${idx + 1}" data-unidad="${esc(u)}">
-          <div class="box" role="button" tabindex="0"></div>
-          <div><div class="name">${esc(p.nombre)}</div><div class="sub">Batch base ${esc(p.batch.texto)}</div></div>
-          <div><input type="text" inputmode="decimal" autocomplete="off" placeholder="0" disabled><div class="unit">${esc(u)}</div></div>
-        </div>`;
-      }).join('') +
-      `</div>
-      <div class="card">
-        <label class="field"><span>Nota del día</span><textarea id="nota" placeholder="Opcional"></textarea></label>
-        <label class="field"><span>PIN</span><input id="pin" type="password" inputmode="numeric" autocomplete="off" value="${esc(API.pin.get())}"></label>
-        <div id="cargar-status"></div>
-        <button class="btn" id="guardar">Guardar</button>
-      </div>
-      <p class="lede" style="text-align:center"><a class="link" href="#" id="cambiar-pin">Cambiar PIN</a></p>`;
-    app.innerHTML = html;
-
-    const fechaEl = document.getElementById('fecha');
-    const status = document.getElementById('cargar-status');
-    const picks = Array.from(app.querySelectorAll('.pick'));
-
-    const setPick = (el, on, cantidad) => {
-      el.classList.toggle('on', on);
-      el.querySelector('.box').textContent = on ? '✓' : '';
-      const inp = el.querySelector('input');
-      inp.disabled = !on;
-      if (cantidad != null) inp.value = String(cantidad).replace('.', ',');
-      if (!on) inp.value = '';
-    };
-    picks.forEach((el) => {
-      const box = el.querySelector('.box');
-      const toggle = () => { const on = !el.classList.contains('on'); setPick(el, on); if (on) el.querySelector('input').focus(); };
-      box.addEventListener('click', toggle);
-      box.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); } });
-    });
-
-    // Al cambiar la fecha se trae lo ya cargado para ese día, para editarlo.
-    async function cargarFecha() {
-      const f = fechaEl.value;
-      if (!f) return;
-      status.innerHTML = '';
-      try {
-        const plan = await API.planGet(f);
-        picks.forEach((el) => {
-          const it = (plan.items || []).find((i) => i.produccion_id === el.dataset.id);
-          setPick(el, !!it, it ? it.cantidad : null);
-        });
-        document.getElementById('nota').value = plan.nota || '';
-        document.getElementById('plan-info').textContent = (plan.items || []).length
-          ? `Ya hay ${plan.items.length} producciones cargadas para ${fechaLarga(f)}. Guardar reemplaza la lista; las tildes de cocina se conservan.`
-          : `Sin producción cargada para ${fechaLarga(f)}.`;
-      } catch (e) { status.innerHTML = `<div class="status err">${errorMsg(e)}</div>`; }
-    }
-    fechaEl.addEventListener('change', cargarFecha);
-    await cargarFecha();
-
-    document.getElementById('guardar').addEventListener('click', async () => {
-      const f = fechaEl.value;
-      const p = document.getElementById('pin').value.trim();
-      const items = [];
-      for (const el of picks) {
-        if (!el.classList.contains('on')) continue;
-        const c = num(el.querySelector('input').value);
-        if (c == null || c <= 0) { status.innerHTML = `<div class="status err">Falta la cantidad de ${esc(nombreProduccion(el.dataset.id))}.</div>`; return; }
-        items.push({ produccion_id: el.dataset.id, cantidad: c, unidad: el.dataset.unidad, orden: Number(el.dataset.orden) });
-      }
-      if (!f) { status.innerHTML = `<div class="status err">Elegí la fecha.</div>`; return; }
-      if (!p) { status.innerHTML = `<div class="status err">Ingresá el PIN.</div>`; return; }
-      const btn = document.getElementById('guardar');
-      btn.disabled = true; status.innerHTML = '';
-      try {
-        await API.planGuardar(p, f, document.getElementById('nota').value, items);
-        API.pin.set(p);
-        status.innerHTML = `<div class="status ok">Guardado: ${items.length} producciones para ${esc(fechaLarga(f))}.</div>`;
-        if (f === hoyISO()) setTimeout(() => { location.hash = '#/dia'; }, 900);
-      } catch (e) {
-        if (e.code === 'PIN_INCORRECTO') API.pin.clear();
-        status.innerHTML = `<div class="status err">${errorMsg(e)}</div>`;
-      } finally { btn.disabled = false; }
-    });
-
-    document.getElementById('cambiar-pin').addEventListener('click', (ev) => { ev.preventDefault(); renderDefinirPin(() => renderDiaCargar(), true); });
-  }
-
-  // Primera vez: no hay PIN en la base, se define acá. Después: cambio con el PIN actual.
-  function renderDefinirPin(volver, cambio) {
-    app.innerHTML = `<a class="back" href="#/dia">‹ Producción del día</a><h1>${cambio ? 'Cambiar PIN' : 'Definir PIN'}</h1>
-      <p class="lede">${cambio ? 'Ingresá el PIN actual y el nuevo.' : 'Todavía no hay PIN de carga. Definilo ahora: protege la carga de producción y los mínimos de stock. Cocina no lo necesita.'}</p>
-      <div class="card">
-        ${cambio ? `<label class="field"><span>PIN actual</span><input id="pin-actual" type="password" inputmode="numeric" autocomplete="off"></label>` : ''}
-        <label class="field"><span>PIN nuevo</span><input id="pin-nuevo" type="password" inputmode="numeric" autocomplete="off"></label>
-        <label class="field"><span>Repetir PIN nuevo</span><input id="pin-rep" type="password" inputmode="numeric" autocomplete="off"></label>
-        <div id="pin-status"></div>
-        <button class="btn" id="pin-ok">Guardar PIN</button>
-        ${cambio ? `<button class="btn secondary small" id="pin-cancel">Cancelar</button>` : ''}
-      </div>`;
-    const status = document.getElementById('pin-status');
-    document.getElementById('pin-ok').addEventListener('click', async () => {
-      const nuevo = document.getElementById('pin-nuevo').value;
-      const rep = document.getElementById('pin-rep').value;
-      const actual = cambio ? document.getElementById('pin-actual').value : null;
-      if (nuevo.length < 4) { status.innerHTML = `<div class="status err">El PIN tiene que tener al menos 4 caracteres.</div>`; return; }
-      if (nuevo !== rep) { status.innerHTML = `<div class="status err">Los PIN no coinciden.</div>`; return; }
-      try {
-        await API.pinSet(actual, nuevo);
-        API.pin.set(nuevo);
-        volver();
-      } catch (e) { status.innerHTML = `<div class="status err">${errorMsg(e)}</div>`; }
-    });
-    const cancel = document.getElementById('pin-cancel');
-    if (cancel) cancel.addEventListener('click', volver);
-  }
-
-  // ---------- 7. stock · conteo ----------
-  const groupByRubro = (insumos) => {
-    const out = [];
-    for (const i of insumos) {
-      let g = out.find((x) => x.rubro === i.rubro);
-      if (!g) { g = { rubro: i.rubro, items: [] }; out.push(g); }
-      g.items.push(i);
-    }
-    return out;
-  };
-
-  async function renderStock() {
-    app.innerHTML = `<a class="back" href="#/">‹ Inicio</a><h1>Stock</h1><p class="msg">Cargando…</p>`;
-    let stock;
-    try { stock = await API.stockGet(); }
-    catch (e) { app.innerHTML = `<a class="back" href="#/">‹ Inicio</a><h1>Stock</h1><div class="status err">${errorMsg(e)}</div>`; return; }
-
-    const fecha0 = hoyISO();
-    let html = `<a class="back" href="#/">‹ Inicio</a><h1>Stock</h1>
-      <div class="btnrow"><a class="btn secondary small" href="#/stock/pedido">Pedido sugerido</a><a class="btn secondary small" href="#/stock/minimos">Mínimos</a></div>
-      <div class="card">
-        <label class="field"><span>Fecha del conteo</span><input id="fecha" type="date" value="${fecha0}"></label>
-        <p class="lede" style="margin:0">Contar en la unidad indicada. Se guarda solo lo que completes; lo vacío no se toca.</p>
-      </div>`;
-    for (const g of groupByRubro(stock.insumos)) {
-      html += `<h2>${esc(g.rubro)}</h2><div class="card">` + g.items.map((i) => `
-        <div class="stockrow" data-id="${esc(i.id)}">
-          <div><div class="name">${esc(i.nombre)}</div>
-            <div class="sub">${esc(i.unidad)}${i.ultimo_fecha ? ` · último ${esc(fechaCorta(i.ultimo_fecha))}: ${fmt(i.ultimo_cantidad)}` : ' · sin conteo'}${i.minimo != null ? ` · mín. ${fmt(i.minimo)}` : ''}</div></div>
-          <input type="text" inputmode="decimal" autocomplete="off" placeholder="—">
-        </div>`).join('') + `</div>`;
-    }
-    html += `<div class="card"><div id="stock-status"></div><button class="btn" id="guardar">Guardar conteo</button></div>`;
-    app.innerHTML = html;
-
-    const fechaEl = document.getElementById('fecha');
-    const status = document.getElementById('stock-status');
-    const rows = Array.from(app.querySelectorAll('.stockrow'));
-
-    async function cargarFecha() {
-      try {
-        const c = await API.conteoGet(fechaEl.value);
-        rows.forEach((r) => {
-          const it = (c.items || []).find((x) => x.insumo_id === r.dataset.id);
-          r.querySelector('input').value = it ? String(it.cantidad).replace('.', ',') : '';
-        });
-      } catch (e) { status.innerHTML = `<div class="status err">${errorMsg(e)}</div>`; }
-    }
-    fechaEl.addEventListener('change', cargarFecha);
-    await cargarFecha();
-
-    document.getElementById('guardar').addEventListener('click', async () => {
-      const f = fechaEl.value;
-      if (!f) { status.innerHTML = `<div class="status err">Elegí la fecha.</div>`; return; }
-      const items = [];
-      for (const r of rows) {
-        const raw = r.querySelector('input').value.trim();
-        if (raw === '') continue;
-        const c = num(raw);
-        if (c == null || c < 0) { status.innerHTML = `<div class="status err">Cantidad inválida en ${esc(r.querySelector('.name').textContent)}.</div>`; return; }
-        items.push({ insumo_id: r.dataset.id, cantidad: c });
-      }
-      if (!items.length) { status.innerHTML = `<div class="status err">No hay cantidades cargadas.</div>`; return; }
-      const btn = document.getElementById('guardar');
-      btn.disabled = true;
-      try {
-        await API.conteoGuardar(f, items);
-        status.innerHTML = `<div class="status ok">Conteo guardado: ${items.length} insumos para ${esc(fechaLarga(f))}.</div>`;
-      } catch (e) { status.innerHTML = `<div class="status err">${errorMsg(e)}</div>`; }
-      finally { btn.disabled = false; }
-    });
-  }
-
-  // ---------- 8. stock · pedido sugerido ----------
-  async function renderPedido() {
-    app.innerHTML = `<a class="back" href="#/stock">‹ Stock</a><h1>Pedido sugerido</h1><p class="msg">Cargando…</p>`;
-    let stock;
-    try { stock = await API.stockGet(); }
-    catch (e) { app.innerHTML = `<a class="back" href="#/stock">‹ Stock</a><h1>Pedido sugerido</h1><div class="status err">${errorMsg(e)}</div>`; return; }
-
-    const conMin = stock.insumos.filter((i) => i.minimo != null);
-    const sinConteo = conMin.filter((i) => i.ultimo_cantidad == null);
-    const bajos = conMin.filter((i) => i.ultimo_cantidad != null && Number(i.ultimo_cantidad) < Number(i.minimo));
-    const ultimaFecha = stock.fechas && stock.fechas[0];
-
-    let html = `<a class="back" href="#/stock">‹ Stock</a><h1>Pedido sugerido</h1>
-      <p class="lede">Se arma con el último conteo de cada insumo${ultimaFecha ? ` (último: ${esc(fechaLarga(ultimaFecha))})` : ''} y muestra solo lo que está por debajo del mínimo.</p>`;
-    if (!conMin.length) {
-      html += `<div class="status err">No hay mínimos cargados. Cargalos en <a class="link" href="#/stock/minimos">Mínimos</a>.</div>`;
-    } else if (!bajos.length) {
-      html += `<div class="card"><p class="msg" style="padding:12px 0">Nada por debajo del mínimo.</p></div>`;
-    } else {
-      for (const g of groupByRubro(bajos)) {
-        html += `<h2>${esc(g.rubro)}</h2><div class="card pedido"><table><tbody>` + g.items.map((i) => `
-          <tr><td><b>${esc(i.nombre)}</b><br><span class="sub" style="color:var(--gray);font-size:14px">${esc(i.unidad)} · tiene ${fmt(i.ultimo_cantidad)} · mín. ${fmt(i.minimo)}</span></td>
-          <td class="q">${fmt(Number(i.minimo) - Number(i.ultimo_cantidad))}<span class="u"> ${esc(i.unidad)}</span></td></tr>`).join('') + `</tbody></table></div>`;
-      }
-    }
-    if (sinConteo.length) html += `<p class="lede">${sinConteo.length} insumos con mínimo pero sin ningún conteo todavía.</p>`;
-    app.innerHTML = html;
-  }
-
-  // ---------- 9. stock · mínimos (PIN) ----------
-  async function renderMinimos() {
-    app.innerHTML = `<a class="back" href="#/stock">‹ Stock</a><h1>Mínimos</h1><p class="msg">Cargando…</p>`;
-    let stock, estado;
-    try { [stock, estado] = await Promise.all([API.stockGet(), API.pinEstado()]); }
-    catch (e) { app.innerHTML = `<a class="back" href="#/stock">‹ Stock</a><h1>Mínimos</h1><div class="status err">${errorMsg(e)}</div>`; return; }
-    if (!estado.definido) return renderDefinirPin(() => renderMinimos());
-
-    let html = `<a class="back" href="#/stock">‹ Stock</a><h1>Mínimos</h1>
-      <p class="lede">Cantidad por debajo de la cual hay que reponer, en la unidad de cada insumo. Vacío significa sin mínimo.</p>`;
-    for (const g of groupByRubro(stock.insumos)) {
-      html += `<h2>${esc(g.rubro)}</h2><div class="card">` + g.items.map((i) => `
-        <div class="stockrow" data-id="${esc(i.id)}">
-          <div><div class="name">${esc(i.nombre)}</div><div class="sub">${esc(i.unidad)}</div></div>
-          <input type="text" inputmode="decimal" autocomplete="off" placeholder="—" value="${i.minimo != null ? esc(String(i.minimo).replace('.', ',')) : ''}">
-        </div>`).join('') + `</div>`;
-    }
-    html += `<div class="card">
-      <label class="field"><span>PIN</span><input id="pin" type="password" inputmode="numeric" autocomplete="off" value="${esc(API.pin.get())}"></label>
-      <div id="min-status"></div><button class="btn" id="guardar">Guardar mínimos</button></div>`;
-    app.innerHTML = html;
-
-    const status = document.getElementById('min-status');
-    document.getElementById('guardar').addEventListener('click', async () => {
-      const p = document.getElementById('pin').value.trim();
-      if (!p) { status.innerHTML = `<div class="status err">Ingresá el PIN.</div>`; return; }
-      const items = [];
-      for (const r of app.querySelectorAll('.stockrow')) {
-        const raw = r.querySelector('input').value.trim();
-        if (raw !== '' && (num(raw) == null || num(raw) < 0)) { status.innerHTML = `<div class="status err">Mínimo inválido en ${esc(r.querySelector('.name').textContent)}.</div>`; return; }
-        items.push({ insumo_id: r.dataset.id, minimo: raw === '' ? null : num(raw) });
-      }
-      const btn = document.getElementById('guardar');
-      btn.disabled = true;
-      try {
-        await API.minimosGuardar(p, items);
-        API.pin.set(p);
-        status.innerHTML = `<div class="status ok">Mínimos guardados.</div>`;
-      } catch (e) {
-        if (e.code === 'PIN_INCORRECTO') API.pin.clear();
-        status.innerHTML = `<div class="status err">${errorMsg(e)}</div>`;
-      } finally { btn.disabled = false; }
-    });
-  }
-
   function notFound(what) {
     app.innerHTML = `<p class="msg error">${esc(what)} no encontrado.</p><p class="msg"><a href="#/">Volver al inicio</a></p>`;
   }
@@ -659,5 +292,4 @@
     });
 
   window.addEventListener('hashchange', route);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && parseHash().section === 'dia' && !parseHash().id) route(); });
 })();
