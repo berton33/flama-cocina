@@ -269,6 +269,81 @@
       "armado": "Los vegetales van debajo de la carne. El medallón reposa sobre el tomate: así el pan de abajo queda aislado y la lechuga no se calienta. Esta burger no lleva panceta."
     },
     {
+      "id": "jam-burger",
+      "nombre": "Jam Burger",
+      "tipo": "burger",
+      "resumen": {
+        "carne": {
+          "cantidad": 180,
+          "unidad": "g"
+        },
+        "salsa": {
+          "cantidad": 30,
+          "unidad": "g"
+        }
+      },
+      "componentes": [
+        {
+          "orden": 1,
+          "componente": "Pan Hobs — base, tostado con manteca",
+          "cantidad": 1,
+          "unidad_pieza": "unidad"
+        },
+        {
+          "orden": 2,
+          "componente": "Emmy's Infusion",
+          "cantidad": 15,
+          "unidad": "g",
+          "produccion_id": "emmys-infusion"
+        },
+        {
+          "orden": 3,
+          "componente": "Medallón ojo de bife angus",
+          "cantidad": 90,
+          "unidad": "g"
+        },
+        {
+          "orden": 4,
+          "componente": "Cheddar",
+          "cantidad": 1,
+          "unidad_pieza": "feta"
+        },
+        {
+          "orden": 5,
+          "componente": "Medallón ojo de bife angus",
+          "cantidad": 90,
+          "unidad": "g"
+        },
+        {
+          "orden": 6,
+          "componente": "Cheddar",
+          "cantidad": 1,
+          "unidad_pieza": "feta"
+        },
+        {
+          "orden": 7,
+          "componente": "Bacon jam",
+          "cantidad": 50,
+          "unidad": "g",
+          "produccion_id": "bacon-jam"
+        },
+        {
+          "orden": 8,
+          "componente": "Emmy's Infusion",
+          "cantidad": 15,
+          "unidad": "g",
+          "produccion_id": "emmys-infusion"
+        },
+        {
+          "orden": 9,
+          "componente": "Pan Hobs — tapa, tostada con manteca",
+          "cantidad": 1,
+          "unidad_pieza": "unidad"
+        }
+      ],
+      "armado": "Asegurarse de que no quede muy aceitosa: si el bacon jam está aceitoso, colarlo antes de armar."
+    },
+    {
       "id": "parmesan-fries",
       "nombre": "Parmesan Fries",
       "tipo": "fries",
@@ -403,7 +478,8 @@
       "descripcion": "Va en Cheese Burger y Cheese Bacon · 30 g por unidad (15 + 15)",
       "usado_en": [
         "cheese-burger",
-        "cheese-bacon"
+        "cheese-bacon",
+        "jam-burger"
       ],
       "uso_por_unidad": {
         "cantidad": 30,
@@ -735,7 +811,8 @@
       "nombres_alternativos": [],
       "descripcion": "Va en Jam Fries · 20 g por porción",
       "usado_en": [
-        "jam-fries"
+        "jam-fries",
+        "jam-burger"
       ],
       "uso_por_unidad": {
         "cantidad": 20,
