@@ -682,7 +682,7 @@
         <div class="stockrow" data-id="${esc(i.id)}">
           <div><div class="name">${esc(i.nombre)}</div>
             <div class="sub">${esc(i.unidad)}${i.ultimo_fecha ? ` · último ${esc(fechaCorta(i.ultimo_fecha))}: ${fmt(i.ultimo_cantidad)}` : ' · sin conteo'}${i.minimo != null ? ` · mín. ${fmt(i.minimo)}` : ''}</div></div>
-          <input type="text" inputmode="decimal" autocomplete="off" placeholder="—">
+          <input type="text" inputmode="decimal" autocomplete="off" placeholder="—"><div class="unit-big">${esc(i.unidad)}</div>
         </div>`).join('') + `</div>`;
     }
     html += `<div class="card"><div id="stock-status"></div><button class="btn" id="guardar">Guardar conteo</button></div>`;
@@ -691,6 +691,8 @@
     const fechaEl = document.getElementById('fecha');
     const status = document.getElementById('stock-status');
     const rows = Array.from(app.querySelectorAll('.stockrow'));
+    let confirmado = false; // segundo toque en Guardar acepta los valores marcados como raros
+    rows.forEach((r) => r.querySelector('input').addEventListener('input', () => { confirmado = false; }));
 
     async function cargarFecha() {
       try {
@@ -716,6 +718,20 @@
         items.push({ insumo_id: r.dataset.id, cantidad: c });
       }
       if (!items.length) { status.innerHTML = `<div class="status err">No hay cantidades cargadas.</div>`; return; }
+      // Aviso si un valor no tiene sentido para la unidad (gramos cargados como kilos, o al revés). No bloquea.
+      const raras = [];
+      for (const r of rows) {
+        const raw = r.querySelector('input').value.trim(); if (raw === '') continue;
+        const v = num(raw), u = r.querySelector('.unit-big').textContent.trim().toLowerCase(), nombre = r.querySelector('.name').textContent;
+        if (u === 'g' && v > 0 && v < 5) raras.push(`${nombre}: ${raw} g. Se cuenta en gramos, ¿no serán ${fmt(v * 1000)} g?`);
+        else if (u !== 'g' && v > 200) raras.push(`${nombre}: ${raw} ${u}. ¿Seguro? La unidad es ${u}.`);
+      }
+      if (raras.length && !confirmado) {
+        confirmado = true;
+        status.innerHTML = `<div class="warn"><span class="k">Revisá estos valores</span><ul class="plain" style="margin:6px 0 10px">${raras.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>Corregilos y volvé a guardar, o tocá Guardar conteo de nuevo para guardarlos igual.</div>`;
+        return;
+      }
+      confirmado = false;
       const btn = document.getElementById('guardar');
       btn.disabled = true;
       try {

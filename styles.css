@@ -227,3 +227,6 @@ table.ctl td.q.desc { font-size: 19px; font-weight: 800; color: var(--black); }
 table.ctl tr.neg td.q.desc { color: var(--brand); }
 table.ctl tr.neg td { background: #fbeef0; }
 table.ctl .sub { color: var(--gray); font-size: 12px; font-weight: 500; }
+
+.stockrow { grid-template-columns: 1fr 100px 64px; }
+.stockrow .unit-big { font-family: var(--font-title); font-weight: 800; font-size: 18px; color: var(--brand); text-transform: lowercase; line-height: 1.1; word-break: break-word; }
