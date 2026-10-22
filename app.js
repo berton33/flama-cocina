@@ -383,6 +383,10 @@
     if (!estado.definido) return renderDefinirPin(() => renderDiaCargar());
 
     const fecha0 = hoyISO();
+    // Consumo esperado de cada salsa según las ventas del sistema, para tener el dato a la vista al cargar.
+    let sugerido = null;
+    if (CONS) { try { const vv = await API.ventasRango(addDias(fecha0, -28), fecha0); if ((vv.dias || []).length) { const cc = calcularConsumo(vv); sugerido = promedios(cc.salsas, cc.dias); } } catch (_) { sugerido = null; } }
+    const sugTexto = (pid, f) => { const e = sugerido && sugerido[pid]; if (!e) return ''; const w = isoDow(f); return `Según ventas, un ${DOW[w]} se usan ${fmt(esperado(e, w) / 1000)} kg (prom. ${fmt(e.general / 1000)} kg/día)`; };
     let html = `<a class="back" href="#/dia">‹ Producción del día</a><h1>Cargar producción</h1>
       <div class="card">
         <label class="field"><span>Fecha</span><input id="fecha" type="date" value="${fecha0}"></label>
@@ -393,7 +397,7 @@
         const u = p.batch.unidad_escalado || p.batch.unidad;
         return `<div class="pick" data-id="${esc(p.id)}" data-orden="${idx + 1}" data-unidad="${esc(u)}">
           <div class="box" role="button" tabindex="0"></div>
-          <div><div class="name">${esc(p.nombre)}</div><div class="sub">Batch base ${esc(p.batch.texto)}</div></div>
+          <div><div class="name">${esc(p.nombre)}</div><div class="sub">Batch base ${esc(p.batch.texto)}</div><div class="sub sug" data-sug="${esc(p.id)}">${esc(sugTexto(p.id, fecha0))}</div></div>
           <div><input type="text" inputmode="decimal" autocomplete="off" placeholder="0" disabled><div class="unit">${esc(u)}</div></div>
         </div>`;
       }).join('') +
@@ -431,6 +435,7 @@
       const f = fechaEl.value;
       if (!f) return;
       status.innerHTML = '';
+      app.querySelectorAll('[data-sug]').forEach((el) => { el.textContent = sugTexto(el.dataset.sug, f); });
       try {
         const plan = await API.planGet(f);
         picks.forEach((el) => {
@@ -774,7 +779,7 @@
 
     const fecha0 = hoyISO();
     let html = `<a class="back" href="#/">‹ Inicio</a><h1>Stock</h1>
-      <div class="btnrow three"><a class="btn secondary small" href="#/stock/ver">Ver stock</a><a class="btn secondary small" href="#/stock/pedido">Pedido sugerido</a><a class="btn secondary small" href="#/stock/minimos">Mínimos</a></div>
+      <div class="btnrow three"><a class="btn secondary small" href="#/stock/ver">Ver stock</a><a class="btn secondary small" href="#/stock/pedido">Bajo mínimo</a><a class="btn secondary small" href="#/stock/minimos">Mínimos</a></div>
       <div class="card">
         <label class="field"><span>Fecha del conteo</span><input id="fecha" type="date" value="${fecha0}"></label>
         <p class="lede" style="margin:0">Contar en la unidad indicada. Se guarda solo lo que completes; lo vacío no se toca.</p>
@@ -875,17 +880,17 @@
 
   // ---------- 8. stock · pedido sugerido ----------
   async function renderPedido() {
-    app.innerHTML = `<a class="back" href="#/stock">‹ Stock</a><h1>Pedido sugerido</h1><p class="msg">Cargando…</p>`;
+    app.innerHTML = `<a class="back" href="#/stock">‹ Stock</a><h1>Bajo mínimo</h1><p class="msg">Cargando…</p>`;
     let stock;
     try { stock = await API.stockGet(); }
-    catch (e) { app.innerHTML = `<a class="back" href="#/stock">‹ Stock</a><h1>Pedido sugerido</h1><div class="status err">${errorMsg(e)}</div>`; return; }
+    catch (e) { app.innerHTML = `<a class="back" href="#/stock">‹ Stock</a><h1>Bajo mínimo</h1><div class="status err">${errorMsg(e)}</div>`; return; }
 
     const conMin = stock.insumos.filter((i) => i.minimo != null);
     const sinConteo = conMin.filter((i) => i.ultimo_cantidad == null);
     const bajos = conMin.filter((i) => i.ultimo_cantidad != null && Number(i.ultimo_cantidad) < Number(i.minimo));
     const ultimaFecha = stock.fechas && stock.fechas[0];
 
-    let html = `<a class="back" href="#/stock">‹ Stock</a><h1>Pedido sugerido</h1>
+    let html = `<a class="back" href="#/stock">‹ Stock</a><h1>Bajo mínimo</h1>
       <p class="lede">Se arma con el último conteo de cada insumo${ultimaFecha ? ` (último: ${esc(fechaLarga(ultimaFecha))})` : ''} y muestra solo lo que está por debajo del mínimo.</p>`;
     if (!conMin.length) {
       html += `<div class="status err">No hay mínimos cargados. Cargalos en <a class="link" href="#/stock/minimos">Mínimos</a>.</div>`;
