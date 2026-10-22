@@ -604,11 +604,15 @@
     return { fechaPedido: hoy, entrega: llega, puente, cubre, hoyEsPedido: true, urgente: true, proximaRegular: reg.entrega };
   }
 
-  // Cuánto pedir de cada cosa para un plan: necesita = (puente + cubre) × (1 + margen) − stock.
+  // Cuánto pedir para un plan. El pedido cubre solo los días posteriores a la entrega (cubre), descontando lo que
+  // sobre del stock después de aguantar hasta la entrega (puente). Si el stock no alcanza hasta la entrega,
+  // eso no se arregla con este pedido: se devuelve como faltaPuente para avisar (pedido urgente).
   function cantidadAPedir(prom, plan, margen, stockBase, contenido) {
-    const necesitaBase = (plan.puente.reduce((a, f) => a + esperado(prom, isoDow(f)), 0) + plan.cubre.reduce((a, f) => a + esperado(prom, isoDow(f)), 0)) * (1 + margen);
-    const pedirBase = stockBase == null ? necesitaBase : Math.max(0, necesitaBase - stockBase);
-    return { necesita: necesitaBase / contenido, pedir: Math.ceil(pedirBase / contenido - 1e-9) };
+    const needPuente = plan.puente.reduce((a, f) => a + esperado(prom, isoDow(f)), 0) * (1 + margen);
+    const needCubre = plan.cubre.reduce((a, f) => a + esperado(prom, isoDow(f)), 0) * (1 + margen);
+    const sobra = stockBase == null ? 0 : Math.max(0, stockBase - needPuente);
+    const faltaPuente = stockBase == null ? 0 : Math.max(0, needPuente - stockBase);
+    return { necesita: needCubre / contenido, hastaEntrega: needPuente / contenido, faltaPuente: faltaPuente / contenido, pedir: Math.ceil(Math.max(0, needCubre - sobra) / contenido - 1e-9) };
   }
 
   // Consumo diario de bebidas (ventas directas + mixers de tragos) en su unidad de conteo.
@@ -642,14 +646,14 @@
         if (DATA.producciones.some((pr) => pr.id === id)) continue;
         const stockBase = ins.ultimo_cantidad != null ? Number(ins.ultimo_cantidad) * info.contenido : null;
         const r = cantidadAPedir(p, plan, margen, stockBase, info.contenido);
-        lineas.push({ clave: `i:${id}`, nombre: ins.nombre, unidad: ins.unidad, pedir: r.pedir, stock: ins.ultimo_cantidad, stockFecha: ins.ultimo_fecha, proveedor: (provs.insumos || {})[id] || provs.por_defecto || 'Proveedor' });
+        lineas.push({ clave: `i:${id}`, nombre: ins.nombre, unidad: ins.unidad, pedir: r.pedir, faltaPuente: r.faltaPuente, stock: ins.ultimo_cantidad, stockFecha: ins.ultimo_fecha, proveedor: (provs.insumos || {})[id] || provs.por_defecto || 'Proveedor' });
       }
       for (const [id, p] of Object.entries(prBeb)) {
         const b = (cat.bebidas || []).find((x) => x.id === id); if (!b || !b.activo) continue;
         const sb = stockBeb[id]; const stock = sb && fechaStockBeb != null ? sb.stocks[fechaStockBeb] : null;
         const contenido = b.unidad === 'ml' ? Number(b.capacidad_ml || 1) : 1; // destilados se piden por botella
         const r = cantidadAPedir(p, plan, margen, stock != null ? Number(stock) : null, contenido);
-        lineas.push({ clave: `b:${id}`, nombre: b.nombre, unidad: b.unidad === 'ml' ? 'botellas' : b.unidad, pedir: r.pedir, stock: stock != null ? (b.unidad === 'ml' ? Number(stock) / contenido : Number(stock)) : null, stockFecha: fechaStockBeb, proveedor: (provs.bebidas || {})[id] || provs.bebidas_por_defecto || 'Bebidas' });
+        lineas.push({ clave: `b:${id}`, nombre: b.nombre, unidad: b.unidad === 'ml' ? 'botellas' : b.unidad, pedir: r.pedir, faltaPuente: r.faltaPuente, stock: stock != null ? (b.unidad === 'ml' ? Number(stock) / contenido : Number(stock)) : null, stockFecha: fechaStockBeb, proveedor: (provs.bebidas || {})[id] || provs.bebidas_por_defecto || 'Bebidas' });
       }
       return { plan, lineas };
     };
@@ -669,9 +673,9 @@
         </div>
         <p class="lede">Cantidades sugeridas en unidades de compra. Podés corregirlas antes de copiar; en 0 no se incluyen.</p>`;
       for (const g of grupos) {
-        const conPedido = g.items.filter((l) => l.pedir > 0);
+        const conPedido = g.items.filter((l) => l.pedir > 0 || l.faltaPuente > 0);
         html += `<div class="card prov" data-prov="${esc(g.prov)}"><div class="btnrow" style="align-items:center"><strong style="font-size:22px">${esc(g.prov)}</strong><button type="button" class="btn small ap-copy" style="margin:0">Copiar</button></div>
-          ${conPedido.length ? `<table style="margin-top:8px"><tbody>` + conPedido.map((l) => `<tr data-clave="${esc(l.clave)}" data-nombre="${esc(l.nombre)}" data-unidad="${esc(l.unidad)}"><td><b>${esc(l.nombre)}</b><br><span class="sub" style="color:var(--gray);font-size:13px">${esc(l.unidad)}${l.stock != null ? ` · hay ${fmt(l.stock)} (${esc(fechaCorta(l.stockFecha))})` : ' · sin conteo'}</span></td><td class="q" style="width:110px"><input class="ap-cant" type="text" inputmode="decimal" autocomplete="off" value="${l.pedir}" style="width:100px;font:inherit;font-size:22px;font-weight:800;text-align:right;padding:6px 8px;border:2px solid var(--black);border-radius:8px"></td></tr>`).join('') + `</tbody></table>` : `<p class="msg" style="padding:8px 0">Nada que pedir a este proveedor.</p>`}
+          ${conPedido.length ? `<table style="margin-top:8px"><tbody>` + conPedido.map((l) => `<tr data-clave="${esc(l.clave)}" data-nombre="${esc(l.nombre)}" data-unidad="${esc(l.unidad)}"><td><b>${esc(l.nombre)}</b><br><span class="sub" style="color:var(--gray);font-size:13px">${esc(l.unidad)}${l.stock != null ? ` · hay ${fmt(l.stock)} (${esc(fechaCorta(l.stockFecha))})` : ' · sin conteo'}</span>${l.faltaPuente > 0 && modo === 'regular' ? `<br><span class="sub" style="color:var(--brand);font-size:13px;font-weight:700">No llega a la entrega: faltan ${fmt(l.faltaPuente)} antes del ${esc(fechaCorta(plan.entrega))}</span>` : ''}</td><td class="q" style="width:110px"><input class="ap-cant" type="text" inputmode="decimal" autocomplete="off" value="${l.pedir}" style="width:100px;font:inherit;font-size:22px;font-weight:800;text-align:right;padding:6px 8px;border:2px solid var(--black);border-radius:8px"></td></tr>`).join('') + `</tbody></table>` : `<p class="msg" style="padding:8px 0">Nada que pedir a este proveedor.</p>`}
           <div class="ap-status"></div></div>`;
       }
       html += `<button type="button" class="btn" id="ap-copy-all">Copiar todo</button><div id="ap-all-status"></div>`;
@@ -703,22 +707,22 @@
       const info = CONS.insumos[id]; const ins = stockPorId[id]; if (!info || !ins) continue;
       if (DATA.producciones.some((pr) => pr.id === id)) continue; // las salsas propias se producen, no se piden: ver Producción
       const diario = p.general;
-      const necesitaBase = (np.puente.reduce((a, f) => a + esperado(p, isoDow(f)), 0) + np.cubre.reduce((a, f) => a + esperado(p, isoDow(f)), 0)) * (1 + margen);
       const stockBase = ins.ultimo_cantidad != null ? Number(ins.ultimo_cantidad) * info.contenido : null;
       const cobertura = stockBase != null && diario > 0 ? stockBase / diario : null;
-      const pedirBase = stockBase == null ? necesitaBase : Math.max(0, necesitaBase - stockBase);
-      const pedir = Math.ceil(pedirBase / info.contenido - 1e-9);
-      filas.push({ id, nombre: ins.nombre, rubro: ins.rubro, unidad: ins.unidad, base: info.base, diario, diarioCompra: diario / info.contenido, stock: ins.ultimo_cantidad, stockFecha: ins.ultimo_fecha, cobertura, necesita: necesitaBase / info.contenido, pedir, sinConteo: stockBase == null });
+      const r = cantidadAPedir(p, np, margen, stockBase, info.contenido);
+      filas.push({ id, nombre: ins.nombre, rubro: ins.rubro, unidad: ins.unidad, base: info.base, diario, diarioCompra: diario / info.contenido, stock: ins.ultimo_cantidad, stockFecha: ins.ultimo_fecha, cobertura, necesita: r.necesita, pedir: r.pedir, faltaPuente: r.faltaPuente, hastaEntrega: r.hastaEntrega, sinConteo: stockBase == null });
     }
     filas.sort((a, b) => (b.pedir - a.pedir) || a.nombre.localeCompare(b.nombre));
     const grupos = []; for (const f of filas) { let g = grupos.find((x) => x.rubro === f.rubro); if (!g) { g = { rubro: f.rubro, items: [] }; grupos.push(g); } g.items.push(f); }
     let html = pedNav('pedido') + `<p class="lede">Según las ventas de los últimos ${cons.dias.length} días con reporte y las recetas. ${np.hoyEsPedido ? `<b>Hoy es día de pedido.</b>` : `Próximo pedido: <b>${esc(DOW[isoDow(np.fechaPedido)])} ${esc(fechaCorta(np.fechaPedido))}</b>.`} Llega el ${esc(fechaCorta(np.entrega))} y cubre ${np.cubre.map((f) => esc(DOW[isoDow(f)])).join(', ')}. Hasta la entrega hay que aguantar ${np.puente.length} día${np.puente.length === 1 ? '' : 's'} con el stock actual. Margen de seguridad ${fmt(margen * 100)} %.</p>`;
     for (const g of grupos) {
       html += `<h2>${esc(g.rubro)}</h2><div class="card"><div class="scrollx"><table class="ctl"><thead><tr><th>Insumo</th><th class="q">Consumo/día</th><th class="q">Stock</th><th class="q">Cubre</th><th class="q">Necesita</th><th class="q">Pedir</th></tr></thead><tbody>` +
-        g.items.map((f) => `<tr class="${f.pedir > 0 ? 'neg' : 'ok'}"><td><b>${esc(f.nombre)}</b><br><span class="sub">${esc(f.unidad)}${f.sinConteo ? ' · sin conteo' : ` · conteo ${esc(fechaCorta(f.stockFecha))}`}</span></td>
+        g.items.map((f) => `<tr class="${f.pedir > 0 ? 'neg' : 'ok'}"><td><b>${esc(f.nombre)}</b><br><span class="sub">${esc(f.unidad)}${f.sinConteo ? ' · sin conteo' : ` · conteo ${esc(fechaCorta(f.stockFecha))}`}</span>${f.faltaPuente > 0 ? `<br><span class="sub" style="color:var(--brand);font-weight:700">No llega a la entrega: faltan ${fmt(f.faltaPuente)} hasta el ${esc(fechaCorta(np.entrega))}. Pedido urgente.</span>` : ''}</td>
           <td class="q">${fmt(f.diarioCompra)}<br><span class="sub">${fmt(f.diario)} ${esc(f.base)}</span></td><td class="q">${f.stock != null ? fmt(f.stock) : '—'}</td><td class="q">${f.cobertura != null ? `${fmt(f.cobertura)} d` : '—'}</td><td class="q">${fmt(f.necesita)}</td><td class="q desc">${f.pedir > 0 ? fmt(f.pedir) : '0'}</td></tr>`).join('') + `</tbody></table></div></div>`;
     }
-    html += `<p class="lede">Las salsas de elaboración propia no se piden: están en Producción. "Necesita" es el consumo esperado hasta que llegue el pedido siguiente, en unidades de compra, con el margen. "Pedir" descuenta el último conteo. Los insumos sin ventas asociadas (descartables, limpieza) siguen con el pedido por mínimos en Stock.</p>`;
+    const urgentes = filas.filter((f) => f.faltaPuente > 0).length;
+    if (urgentes) html = html.replace('</p>', ` <b style="color:var(--brand)">${urgentes} insumo${urgentes === 1 ? '' : 's'} no llega${urgentes === 1 ? '' : 'n'} a la entrega con el stock actual: ver Armar pedido › Urgente.</b></p>`);
+    html += `<p class="lede">Las salsas de elaboración propia no se piden: están en Producción. "Necesita" es el consumo esperado de los días que cubre el pedido (desde la entrega hasta la siguiente), en unidades de compra, con el margen. "Pedir" descuenta lo que sobre del último conteo después de aguantar hasta la entrega. Los insumos sin ventas asociadas (descartables, limpieza) siguen con el pedido por mínimos en Stock.</p>`;
     app.innerHTML = html;
   }
 
