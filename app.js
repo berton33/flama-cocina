@@ -604,6 +604,14 @@
     return { fechaPedido: hoy, entrega: llega, puente, cubre, hoyEsPedido: true, urgente: true, proximaRegular: reg.entrega };
   }
 
+  // Plan por fechas elegidas: el pedido llega p_llega y tiene que cubrir hasta p_hasta inclusive.
+  function planHasta(hoy, llega, hasta) {
+    const cerrados = new Set(CONS.dias_cerrados || []);
+    const puente = []; for (let f = hoy; f < llega; f = addDias(f, 1)) if (!cerrados.has(isoDow(f))) puente.push(f);
+    const cubre = []; for (let f = llega; f <= hasta; f = addDias(f, 1)) { if (!cerrados.has(isoDow(f))) cubre.push(f); if (cubre.length > 60) break; }
+    return { fechaPedido: hoy, entrega: llega, hasta, puente, cubre };
+  }
+
   // Cuánto pedir para un plan. El pedido cubre solo los días posteriores a la entrega (cubre), descontando lo que
   // sobre del stock después de aguantar hasta la entrega (puente). Si el stock no alcanza hasta la entrega,
   // eso no se arregla con este pedido: se devuelve como faltaPuente para avisar (pedido urgente).
@@ -637,9 +645,10 @@
     const stockBeb = {}; for (const b of sv.bebidas) stockBeb[b.id] = b;
     const fechaStockBeb = sv.fechas && sv.fechas[0];
 
-    let modo = 'regular', llega = addDias(hoy, 1);
+    const reg = proximoPedido(hoy);
+    let llega = reg.entrega, hasta = reg.cubre[reg.cubre.length - 1]; // por defecto, el pedido regular
     const calcular = () => {
-      const plan = modo === 'regular' ? proximoPedido(hoy) : planUrgente(hoy, llega);
+      const plan = planHasta(hoy, llega, hasta);
       const lineas = [];
       for (const [id, p] of Object.entries(prIns)) {
         const info = CONS.insumos[id], ins = stockIns[id]; if (!info || !ins) continue;
@@ -664,18 +673,21 @@
       const grupos = []; for (const l of lineas) { let g = grupos.find((x) => x.prov === l.proveedor); if (!g) { g = { prov: l.proveedor, items: [] }; grupos.push(g); } g.items.push(l); }
       grupos.sort((a, b) => (orden.indexOf(a.prov) === -1 ? 99 : orden.indexOf(a.prov)) - (orden.indexOf(b.prov) === -1 ? 99 : orden.indexOf(b.prov)));
       for (const g of grupos) g.items.sort((a, b) => b.pedir - a.pedir || a.nombre.localeCompare(b.nombre));
-      const titulo = `Pedido FLAMA · ${modo === 'regular' ? `${DOW[isoDow(plan.fechaPedido)]} ${fechaCorta(plan.fechaPedido)}` : `URGENTE ${fechaCorta(hoy)}`} · entrega ${fechaCorta(plan.entrega)}`;
+      const titulo = `Pedido FLAMA · ${fechaCorta(hoy)} · entrega ${fechaCorta(plan.entrega)} · cubre hasta ${fechaCorta(plan.hasta)}`;
+      const esRegular = llega === reg.entrega && hasta === reg.cubre[reg.cubre.length - 1];
       let html = pedNav('armar') + `
         <div class="card">
-          <div class="btnrow"><button type="button" class="btn secondary small ${modo === 'regular' ? 'on' : ''}" id="ap-reg">Pedido regular</button><button type="button" class="btn secondary small ${modo === 'urgente' ? 'on' : ''}" id="ap-urg">Urgente</button></div>
-          ${modo === 'urgente' ? `<label class="field"><span>Llega el</span><input id="ap-llega" type="date" value="${llega}" min="${hoy}"></label>` : ''}
-          <p class="lede" style="margin:0">${modo === 'regular' ? `Próximo pedido regular: <b>${esc(DOW[isoDow(plan.fechaPedido)])} ${esc(fechaCorta(plan.fechaPedido))}</b>, llega el ${esc(fechaCorta(plan.entrega))}.` : `Pedido urgente: llega el <b>${esc(fechaCorta(plan.entrega))}</b> y tiene que alcanzar hasta la próxima entrega regular (${esc(fechaCorta(plan.proximaRegular))}).`} Cubre ${plan.cubre.map((f) => esc(DOW[isoDow(f)].slice(0, 3))).join(', ')}; el stock actual tiene que aguantar ${plan.puente.length} día${plan.puente.length === 1 ? '' : 's'}. Margen ${fmt(margen * 100)} %. Stock de cocina: último conteo; bebidas: cierre del ${fechaStockBeb ? esc(fechaCorta(fechaStockBeb)) : '—'}.</p>
+          <div class="btnrow">
+            <label class="field" style="margin:0"><span>Llega el</span><input id="ap-llega" type="date" value="${llega}" min="${hoy}"></label>
+            <label class="field" style="margin:0"><span>Cubrir hasta</span><input id="ap-hasta" type="date" value="${hasta}" min="${llega}"></label>
+          </div>
+          <p class="lede" style="margin:10px 0 0">${esRegular ? `Pedido regular: se pide el <b>${esc(DOW[isoDow(reg.fechaPedido)])} ${esc(fechaCorta(reg.fechaPedido))}</b>.` : `Pedido fuera del calendario regular (el regular sería: llega ${esc(fechaCorta(reg.entrega))}, cubre hasta ${esc(fechaCorta(reg.cubre[reg.cubre.length - 1]))}).`} Cubre ${plan.cubre.length} día${plan.cubre.length === 1 ? '' : 's'} abierto${plan.cubre.length === 1 ? '' : 's'}: ${plan.cubre.map((f) => esc(DOW[isoDow(f)].slice(0, 3) + ' ' + fechaCorta(f))).join(', ')}. Hasta que llegue, el stock actual tiene que aguantar ${plan.puente.length} día${plan.puente.length === 1 ? '' : 's'}. Margen ${fmt(margen * 100)} %. Stock de cocina: último conteo; bebidas: cierre del ${fechaStockBeb ? esc(fechaCorta(fechaStockBeb)) : '—'}.</p>
         </div>
         <p class="lede">Cantidades sugeridas en unidades de compra. Podés corregirlas antes de copiar; en 0 no se incluyen.</p>`;
       for (const g of grupos) {
         const conPedido = g.items.filter((l) => l.pedir > 0 || l.faltaPuente > 0);
         html += `<div class="card prov" data-prov="${esc(g.prov)}"><div class="btnrow" style="align-items:center"><strong style="font-size:22px">${esc(g.prov)}</strong><button type="button" class="btn small ap-copy" style="margin:0">Copiar</button></div>
-          ${conPedido.length ? `<table style="margin-top:8px"><tbody>` + conPedido.map((l) => `<tr data-clave="${esc(l.clave)}" data-nombre="${esc(l.nombre)}" data-unidad="${esc(l.unidad)}"><td><b>${esc(l.nombre)}</b><br><span class="sub" style="color:var(--gray);font-size:13px">${esc(l.unidad)}${l.stock != null ? ` · hay ${fmt(l.stock)} (${esc(fechaCorta(l.stockFecha))})` : ' · sin conteo'}</span>${l.faltaPuente > 0 && modo === 'regular' ? `<br><span class="sub" style="color:var(--brand);font-size:13px;font-weight:700">No llega a la entrega: faltan ${fmt(l.faltaPuente)} antes del ${esc(fechaCorta(plan.entrega))}</span>` : ''}</td><td class="q" style="width:110px"><input class="ap-cant" type="text" inputmode="decimal" autocomplete="off" value="${l.pedir}" style="width:100px;font:inherit;font-size:22px;font-weight:800;text-align:right;padding:6px 8px;border:2px solid var(--black);border-radius:8px"></td></tr>`).join('') + `</tbody></table>` : `<p class="msg" style="padding:8px 0">Nada que pedir a este proveedor.</p>`}
+          ${conPedido.length ? `<table style="margin-top:8px"><tbody>` + conPedido.map((l) => `<tr data-clave="${esc(l.clave)}" data-nombre="${esc(l.nombre)}" data-unidad="${esc(l.unidad)}"><td><b>${esc(l.nombre)}</b><br><span class="sub" style="color:var(--gray);font-size:13px">${esc(l.unidad)}${l.stock != null ? ` · hay ${fmt(l.stock)} (${esc(fechaCorta(l.stockFecha))})` : ' · sin conteo'}</span>${l.faltaPuente > 0 ? `<br><span class="sub" style="color:var(--brand);font-size:13px;font-weight:700">No llega a la entrega: faltan ${fmt(l.faltaPuente)} antes del ${esc(fechaCorta(plan.entrega))}</span>` : ''}</td><td class="q" style="width:110px"><input class="ap-cant" type="text" inputmode="decimal" autocomplete="off" value="${l.pedir}" style="width:100px;font:inherit;font-size:22px;font-weight:800;text-align:right;padding:6px 8px;border:2px solid var(--black);border-radius:8px"></td></tr>`).join('') + `</tbody></table>` : `<p class="msg" style="padding:8px 0">Nada que pedir a este proveedor.</p>`}
           <div class="ap-status"></div></div>`;
       }
       html += `<button type="button" class="btn" id="ap-copy-all">Copiar todo</button><div id="ap-all-status"></div>`;
@@ -692,9 +704,9 @@
       };
       app.querySelectorAll('.card.prov').forEach((card) => card.querySelector('.ap-copy').addEventListener('click', () => copiar(textoDe(card), card.querySelector('.ap-status'))));
       document.getElementById('ap-copy-all').addEventListener('click', () => copiar(Array.from(app.querySelectorAll('.card.prov')).map(textoDe).filter(Boolean).join('\n\n'), document.getElementById('ap-all-status')));
-      document.getElementById('ap-reg').addEventListener('click', () => { modo = 'regular'; paint(); });
-      document.getElementById('ap-urg').addEventListener('click', () => { modo = 'urgente'; paint(); });
-      const ll = document.getElementById('ap-llega'); if (ll) ll.addEventListener('change', () => { if (ll.value && ll.value >= hoy) { llega = ll.value; paint(); } });
+      const ll = document.getElementById('ap-llega'), hh = document.getElementById('ap-hasta');
+      ll.addEventListener('change', () => { if (ll.value && ll.value >= hoy) { llega = ll.value; if (hasta < llega) hasta = llega; paint(); } });
+      hh.addEventListener('change', () => { if (hh.value && hh.value >= llega) { hasta = hh.value; paint(); } });
     };
     paint();
   }
