@@ -6,7 +6,8 @@ Publicada en https://berton33.github.io/flama-cocina/
 
 ## Archivos
 
-- `recetas.json` — única fuente de datos de recetas. Gramajes, nombres, procedimientos y notas viven acá. Para cambiar un gramaje se edita este archivo y nada más.
+- `recetas.json` — única fuente de datos de recetas.
+- `consumos.json` — datos para calcular consumo y pedidos desde las ventas (no es receta: contenidos de unidades de compra, correspondencias y calendario de pedidos). Gramajes, nombres, procedimientos y notas viven acá. Para cambiar un gramaje se edita este archivo y nada más.
 - `index.html`, `styles.css`, `app.js` — la web. No contienen datos de recetas.
 - `config.js` — URL y clave pública (anon) del proyecto Supabase. La clave es pública por diseño; la protección está en la base.
 - `api.js` — llamadas a las funciones `flama_*` de Supabase. No se lee ni escribe ninguna tabla en forma directa.
@@ -17,6 +18,7 @@ Publicada en https://berton33.github.io/flama-cocina/
 - **Producción del día**: vista de cocina. Muestra lo que hay que producir hoy con un casillero grande por ítem y la nota del día. Lo que se tilda queda guardado y se ve desde cualquier dispositivo. Se refresca sola cada 20 segundos.
 - **Cargar producción** (con PIN): fecha, qué producciones van y cuánto, nota del día.
 - **Productos**, **Producción** (recetas con escalador) y **Notas**: leen `recetas.json`.
+- **Pedidos**: a partir de los reportes diarios del sistema (que sube salón) y las recetas: **Pedido sugerido** por insumo en unidades de compra para el próximo pedido (lunes o viernes), con consumo esperado por día de semana, margen de seguridad y descuento del último conteo; **Producción** con el consumo esperado de cada salsa; **Ventas** por producto y por día. Los contenidos por unidad de compra, las correspondencias componente → insumo, el margen y el calendario de pedidos están en `consumos.json`.
 - **Stock**: conteo por insumo en la unidad indicada (lunes y viernes), guardado por fecha. **Pedido sugerido**: lo que está por debajo del mínimo según el último conteo. **Mínimos** (con PIN).
 
 ## PIN de carga

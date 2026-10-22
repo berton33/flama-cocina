@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "descripcion": "Datos para calcular consumo de insumos a partir de las ventas del sistema y las recetas de recetas.json. Ningún número de acá vive en el código.",
+    "convenciones": {
+      "insumos": "Por cada insumo del stock de cocina (id de flama.insumos): cuántas unidades base (g, ml o piezas) trae una unidad de compra, que es la unidad en que se cuenta el stock.",
+      "componentes": "Por cada nombre de componente o ingrediente tal como figura en recetas.json: qué insumos consume y cuántas unidades base del insumo por cada unidad de la cantidad escrita en la receta (por gramo si la receta está en g/ml, por pieza si está en unidad_pieza). Lista vacía = no consume insumo controlado.",
+      "consumo_fijo_diario": "Insumos que se consumen por día abierto sin depender de las ventas, en unidades base.",
+      "entregas": "Días de pedido (ISO: 1 lunes … 7 domingo) y qué días de venta cubre cada pedido."
+    },
+    "fuentes": ["Catálogo definitivo de insumos", "Respuestas del usuario del 21/10/2026 (panceta 25 g por feta, ajo 50 g por cabeza, mostaza 1 kg, salsa de soja 1000 ml, limón 1 kg por día)"]
+  },
+
+  "margen_seguridad": 0.3,
+  "dias_cerrados": [2],
+  "entregas": [
+    { "dia_pedido": 1, "dia_entrega": 2, "cubre": [3, 4, 5] },
+    { "dia_pedido": 5, "dia_entrega": 6, "cubre": [6, 7, 1] }
+  ],
+
+  "insumos": {
+    "ojo-de-bife-angus": { "contenido": 1000, "base": "g" },
+    "tapa-de-bife-angus-alto-marmoleo": { "contenido": 1000, "base": "g" },
+    "cheddar-barra": { "contenido": 192, "base": "feta" },
+    "panceta-sugardale-feteada": { "contenido": 7000, "base": "g" },
+    "panceta-premium-el-araucano": { "contenido": 1000, "base": "g" },
+    "parmesano": { "contenido": 1000, "base": "g" },
+    "pan-flama-hobs": { "contenido": 1, "base": "unidad" },
+    "papas-mccain-crispers": { "contenido": 2500, "base": "g" },
+    "lechuga-repollada": { "contenido": 1000, "base": "g" },
+    "tomate-redondo": { "contenido": 1000, "base": "g" },
+    "cebolla": { "contenido": 1000, "base": "g" },
+    "cebolla-morada": { "contenido": 1000, "base": "g" },
+    "ajo": { "contenido": 50, "base": "g" },
+    "limon": { "contenido": 1000, "base": "g" },
+    "emmys-infusion": { "contenido": 1000, "base": "g" },
+    "lactonesa-trufada": { "contenido": 1000, "base": "g" },
+    "salsa-original": { "contenido": 1000, "base": "g" },
+    "bacon-jam": { "contenido": 1, "base": "g" },
+    "mayonesa-heinz": { "contenido": 2900, "base": "g" },
+    "ketchup-heinz": { "contenido": 2900, "base": "g" },
+    "mostaza-flama": { "contenido": 1000, "base": "g" },
+    "relish-de-pepino-heinz": { "contenido": 375, "base": "ml" },
+    "salsa-chipotle-herdez": { "contenido": 240, "base": "g" },
+    "aceite-de-girasol-comun": { "contenido": 5000, "base": "ml" },
+    "leche-entera-larga-vida": { "contenido": 1000, "base": "ml" },
+    "manteca": { "contenido": 5000, "base": "g" },
+    "azucar": { "contenido": 1000, "base": "g" },
+    "sal-fina": { "contenido": 1000, "base": "g" },
+    "vinagre-de-alcohol": { "contenido": 5000, "base": "ml" },
+    "vinagre-de-manzana": { "contenido": 1000, "base": "ml" },
+    "salsa-de-soja": { "contenido": 1000, "base": "ml" },
+    "togarashi": { "contenido": 1, "base": "g" },
+    "sesamo-negro": { "contenido": 1, "base": "g" },
+    "pimienta-negra-en-grano": { "contenido": 1, "base": "g" },
+    "pimenton-dulce": { "contenido": 1, "base": "g" },
+    "cafe-tostado-molido": { "contenido": 1, "base": "g" },
+    "aceite-de-trufa-la-molisana": { "contenido": 100, "base": "ml" },
+    "trufa-fresca": { "contenido": 1, "base": "g" }
+  },
+
+  "consumo_fijo_diario": [
+    { "insumo_id": "limon", "cantidad_base": 1000, "nota": "Ralladura para Spicy Fries: 1 kg de limón por día (dato del usuario)" }
+  ],
+
+  "componentes": {
+    "Pan Hobs — base, tostado con manteca": [{ "insumo_id": "pan-flama-hobs", "base_por_unidad": 1 }],
+    "Pan Hobs — tapa, tostada con manteca": [],
+    "Medallón ojo de bife angus": [
+      { "insumo_id": "ojo-de-bife-angus", "base_por_unidad": 0.8 },
+      { "insumo_id": "tapa-de-bife-angus-alto-marmoleo", "base_por_unidad": 0.2 }
+    ],
+    "Cheddar": [{ "insumo_id": "cheddar-barra", "base_por_unidad": 1 }],
+    "Panceta Sugardale": [{ "insumo_id": "panceta-sugardale-feteada", "base_por_unidad": 25 }],
+    "Lechuga cortada fina": [{ "insumo_id": "lechuga-repollada", "base_por_unidad": 1 }],
+    "Tomate redondo feteado": [{ "insumo_id": "tomate-redondo", "base_por_unidad": 1 }],
+    "Cebolla morada en aros": [{ "insumo_id": "cebolla-morada", "base_por_unidad": 1 }],
+    "Papas crispers": [{ "insumo_id": "papas-mccain-crispers", "base_por_unidad": 1 }],
+    "Parmesano rallado": [{ "insumo_id": "parmesano", "base_por_unidad": 1 }],
+    "Salsa chipotle": [{ "insumo_id": "salsa-chipotle-herdez", "base_por_unidad": 1 }],
+    "Ralladura de limón": [],
+    "Aceite de trufa": [],
+
+    "Mayonesa": [{ "insumo_id": "mayonesa-heinz", "base_por_unidad": 1 }],
+    "Kétchup": [{ "insumo_id": "ketchup-heinz", "base_por_unidad": 1 }],
+    "Manteca": [{ "insumo_id": "manteca", "base_por_unidad": 1 }],
+    "Salsa de soja": [{ "insumo_id": "salsa-de-soja", "base_por_unidad": 1 }],
+    "Azúcar": [{ "insumo_id": "azucar", "base_por_unidad": 1 }],
+    "Vinagre": [{ "insumo_id": "vinagre-de-alcohol", "base_por_unidad": 1 }],
+    "Vinagre de alcohol": [{ "insumo_id": "vinagre-de-alcohol", "base_por_unidad": 1 }],
+    "Sésamo negro": [{ "insumo_id": "sesamo-negro", "base_por_unidad": 1 }],
+    "Togarashi": [{ "insumo_id": "togarashi", "base_por_unidad": 1 }],
+    "Ajo picado fino": [{ "insumo_id": "ajo", "base_por_unidad": 1 }],
+    "Ajo rallado": [{ "insumo_id": "ajo", "base_por_unidad": 1 }],
+    "Ajo fresco, pasta o rallado": [{ "insumo_id": "ajo", "base_por_unidad": 1 }],
+    "Aceite neutro de girasol": [{ "insumo_id": "aceite-de-girasol-comun", "base_por_unidad": 1 }],
+    "Leche": [{ "insumo_id": "leche-entera-larga-vida", "base_por_unidad": 1 }],
+    "Aceite de trufa (lactonesa)": [{ "insumo_id": "aceite-de-trufa-la-molisana", "base_por_unidad": 1 }],
+    "Sal fina": [{ "insumo_id": "sal-fina", "base_por_unidad": 1 }],
+    "Pimienta negra recién molida": [{ "insumo_id": "pimienta-negra-en-grano", "base_por_unidad": 1 }],
+    "Pimienta": [{ "insumo_id": "pimienta-negra-en-grano", "base_por_unidad": 1 }],
+    "Trufa fresca rallada": [{ "insumo_id": "trufa-fresca", "base_por_unidad": 1 }],
+    "Relish de pepino": [{ "insumo_id": "relish-de-pepino-heinz", "base_por_unidad": 1 }],
+    "Mostaza": [{ "insumo_id": "mostaza-flama", "base_por_unidad": 1 }],
+    "Cebolla fresca rallada fina": [{ "insumo_id": "cebolla", "base_por_unidad": 1 }],
+    "Cebolla en pluma fina": [{ "insumo_id": "cebolla", "base_por_unidad": 1 }],
+    "Pimentón dulce": [{ "insumo_id": "pimenton-dulce", "base_por_unidad": 1 }],
+    "Panceta premium en cubos chicos": [{ "insumo_id": "panceta-premium-el-araucano", "base_por_unidad": 1 }],
+    "Agua": [],
+    "Vinagre de manzana": [{ "insumo_id": "vinagre-de-manzana", "base_por_unidad": 1 }],
+    "Café fuerte preparado": [{ "insumo_id": "cafe-tostado-molido", "base_por_unidad": 0.2 }]
+  },
+
+  "ingredientes_por_produccion": {
+    "nota": "Los ingredientes de las salsas se buscan por nombre en componentes. 'Aceite de trufa' aparece en productos (gotas, sin consumo) y en la lactonesa (60 g): el de la lactonesa usa la entrada 'Aceite de trufa (lactonesa)'.",
+    "lactonesa-trufada": { "Aceite de trufa": "Aceite de trufa (lactonesa)" }
+  }
+}

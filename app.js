@@ -10,6 +10,7 @@
   const topbarSub = document.getElementById('topbar-sub');
   const API = window.FLAMA_API;
   let DATA = null;
+  let CONS = null; // consumos.json: contenidos de insumos y correspondencias para calcular consumo
   let pollTimer = null;
 
   // ---------- utilidades ----------
@@ -81,6 +82,9 @@
       case 'dia':
         topbarSub.textContent = 'Producción del día';
         return id === 'cargar' ? renderDiaCargar() : renderDia();
+      case 'pedidos':
+        topbarSub.textContent = 'Pedidos';
+        return renderPedidos(id || 'pedido');
       case 'stock':
         topbarSub.textContent = 'Stock';
         return id === 'pedido' ? renderPedido() : id === 'minimos' ? renderMinimos() : id === 'ver' ? renderVerStock() : renderStock();
@@ -96,6 +100,7 @@
       <a href="#/productos">Productos</a>
       <a href="#/produccion">Producción</a>
       <a href="#/stock">Stock</a>
+      <a href="#/pedidos">Pedidos</a>
       <a href="#/notas">Notas</a>
     </div>`;
   }
@@ -498,6 +503,156 @@
     if (cancel) cancel.addEventListener('click', volver);
   }
 
+
+  // ---------- pedidos: consumo por ventas, pedido sugerido, producción sugerida, ventas ----------
+  const DOW = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+  const isoDow = (iso) => { const [y, m, d] = iso.split('-').map(Number); const w = new Date(y, m - 1, d).getDay(); return w === 0 ? 7 : w; };
+  const addDias = (iso, n) => { const [y, m, d] = iso.split('-').map(Number); const t = new Date(y, m - 1, d + n); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; };
+
+  function pedNav(sub) {
+    return `<a class="back" href="#/">‹ Inicio</a><h1>Pedidos</h1>
+      <div class="btnrow three"><a class="btn secondary small ${sub === 'pedido' ? 'on' : ''}" href="#/pedidos/pedido">Pedido sugerido</a><a class="btn secondary small ${sub === 'produccion' ? 'on' : ''}" href="#/pedidos/produccion">Producción</a><a class="btn secondary small ${sub === 'ventas' ? 'on' : ''}" href="#/pedidos/ventas">Ventas</a></div>`;
+  }
+
+  // Consumo de insumos por día a partir de las ventas (productos de cocina) y las recetas.
+  // Devuelve { dias: [fecha…], insumos: {fecha: {insumo_id: base}}, salsas: {fecha: {produccion_id: g}}, productos: {fecha: {producto_id: cant}} }
+  function calcularConsumo(ventas) {
+    const comp = CONS.componentes || {}, alias = CONS.ingredientes_por_produccion || {};
+    const out = { dias: [], insumos: {}, salsas: {}, productos: {} };
+    const add = (obj, f, k, v) => { obj[f] = obj[f] || {}; obj[f][k] = (obj[f][k] || 0) + v; };
+    const mapComp = (f, nombre, qty) => { for (const m of (comp[nombre] || [])) add(out.insumos, f, m.insumo_id, qty * m.base_por_unidad); };
+    const diasSet = new Set((ventas.dias || []).map((d) => d.fecha));
+    for (const it of (ventas.items || [])) {
+      if (it.tipo !== 'cocina' || !it.destino_id) continue;
+      const prod = byId(DATA.productos, it.destino_id); if (!prod) continue;
+      const f = it.fecha, n = Number(it.cantidad); diasSet.add(f);
+      add(out.productos, f, prod.id, n);
+      for (const c of prod.componentes) {
+        const q = n * Number(c.cantidad);
+        if (c.produccion_id) add(out.salsas, f, c.produccion_id, q); else mapComp(f, c.componente, q);
+      }
+    }
+    for (const f of Object.keys(out.salsas)) {
+      for (const [pid, g] of Object.entries(out.salsas[f])) {
+        const pr = byId(DATA.producciones, pid); if (!pr) continue;
+        add(out.insumos, f, pid, g); // la salsa como insumo propio (stock de elaboración propia)
+        for (const ing of pr.ingredientes) {
+          const nombre = (alias[pid] || {})[ing.ingrediente] || ing.ingrediente;
+          mapComp(f, nombre, g * Number(ing.cantidad) / Number(pr.batch.cantidad));
+        }
+      }
+    }
+    out.dias = [...diasSet].sort();
+    for (const f of out.dias) for (const cf of (CONS.consumo_fijo_diario || [])) add(out.insumos, f, cf.insumo_id, cf.cantidad_base);
+    return out;
+  }
+
+  // Promedio por día de semana (con los días que haya) y promedio general, por clave.
+  function promedios(porDia, dias) {
+    const porDow = {}, tot = {}; const nDow = {};
+    for (const f of dias) { const w = isoDow(f); nDow[w] = (nDow[w] || 0) + 1; for (const [k, v] of Object.entries(porDia[f] || {})) { porDow[k] = porDow[k] || {}; porDow[k][w] = (porDow[k][w] || 0) + v; tot[k] = (tot[k] || 0) + v; } }
+    const res = {};
+    for (const k of Object.keys(tot)) {
+      res[k] = { general: tot[k] / Math.max(1, dias.length), dow: {} };
+      for (let w = 1; w <= 7; w++) res[k].dow[w] = nDow[w] ? (porDow[k][w] || 0) / nDow[w] : null;
+    }
+    return res;
+  }
+  const esperado = (pr, w) => (pr.dow[w] != null ? pr.dow[w] : pr.general);
+
+  // Próximo pedido según consumos.json: qué día se pide, qué días cubre y qué días hay que aguantar con el stock actual.
+  function proximoPedido(hoy) {
+    const cerrados = new Set(CONS.dias_cerrados || []); const w0 = isoDow(hoy);
+    let best = null;
+    for (const e of CONS.entregas) { let d = (e.dia_pedido - w0 + 7) % 7; if (best == null || d < best.d) best = { d, e }; }
+    const fechaPedido = addDias(hoy, best.d), entrega = addDias(fechaPedido, (best.e.dia_entrega - best.e.dia_pedido + 7) % 7);
+    const puente = []; for (let f = hoy; f < entrega; f = addDias(f, 1)) if (!cerrados.has(isoDow(f))) puente.push(f);
+    const cubre = []; let f = entrega; while (cubre.length < best.e.cubre.length) { if (best.e.cubre.includes(isoDow(f))) cubre.push(f); f = addDias(f, 1); if (cubre.length > 14) break; }
+    return { fechaPedido, entrega, puente, cubre, hoyEsPedido: best.d === 0 };
+  }
+
+  async function cargarVentasYStock(diasAtras) {
+    const hoy = hoyISO();
+    const [v, s] = await Promise.all([API.ventasRango(addDias(hoy, -diasAtras), hoy), API.stockGet()]);
+    return { v, s, hoy };
+  }
+
+  async function renderPedidos(sub) {
+    if (!CONS) { app.innerHTML = pedNav(sub) + `<div class="status err">Falta consumos.json en el sitio.</div>`; return; }
+    app.innerHTML = pedNav(sub) + `<p class="msg">Calculando…</p>`;
+    let data;
+    try { data = await cargarVentasYStock(28); } catch (e) { app.innerHTML = pedNav(sub) + `<div class="status err">${errorMsg(e)}</div>`; return; }
+    if (!(data.v.dias || []).length) { app.innerHTML = pedNav(sub) + `<div class="card"><p class="msg" style="padding:12px 0">No hay reportes de ventas cargados en los últimos 28 días. Se suben desde la web de salón.</p></div>`; return; }
+    if (sub === 'ventas') return renderVentas(data);
+    if (sub === 'produccion') return renderProduccionSugerida(data);
+    return renderPedidoSugerido(data);
+  }
+
+  function renderPedidoSugerido({ v, s, hoy }) {
+    const cons = calcularConsumo(v), pr = promedios(cons.insumos, cons.dias), np = proximoPedido(hoy), margen = Number(CONS.margen_seguridad || 0);
+    const stockPorId = {}; for (const i of s.insumos) stockPorId[i.id] = i;
+    const filas = [];
+    for (const [id, p] of Object.entries(pr)) {
+      const info = CONS.insumos[id]; const ins = stockPorId[id]; if (!info || !ins) continue;
+      if (DATA.producciones.some((pr) => pr.id === id)) continue; // las salsas propias se producen, no se piden: ver Producción
+      const diario = p.general;
+      const necesitaBase = (np.puente.reduce((a, f) => a + esperado(p, isoDow(f)), 0) + np.cubre.reduce((a, f) => a + esperado(p, isoDow(f)), 0)) * (1 + margen);
+      const stockBase = ins.ultimo_cantidad != null ? Number(ins.ultimo_cantidad) * info.contenido : null;
+      const cobertura = stockBase != null && diario > 0 ? stockBase / diario : null;
+      const pedirBase = stockBase == null ? necesitaBase : Math.max(0, necesitaBase - stockBase);
+      const pedir = Math.ceil(pedirBase / info.contenido - 1e-9);
+      filas.push({ id, nombre: ins.nombre, rubro: ins.rubro, unidad: ins.unidad, base: info.base, diario, diarioCompra: diario / info.contenido, stock: ins.ultimo_cantidad, stockFecha: ins.ultimo_fecha, cobertura, necesita: necesitaBase / info.contenido, pedir, sinConteo: stockBase == null });
+    }
+    filas.sort((a, b) => (b.pedir - a.pedir) || a.nombre.localeCompare(b.nombre));
+    const grupos = []; for (const f of filas) { let g = grupos.find((x) => x.rubro === f.rubro); if (!g) { g = { rubro: f.rubro, items: [] }; grupos.push(g); } g.items.push(f); }
+    let html = pedNav('pedido') + `<p class="lede">Según las ventas de los últimos ${cons.dias.length} días con reporte y las recetas. ${np.hoyEsPedido ? `<b>Hoy es día de pedido.</b>` : `Próximo pedido: <b>${esc(DOW[isoDow(np.fechaPedido)])} ${esc(fechaCorta(np.fechaPedido))}</b>.`} Llega el ${esc(fechaCorta(np.entrega))} y cubre ${np.cubre.map((f) => esc(DOW[isoDow(f)])).join(', ')}. Hasta la entrega hay que aguantar ${np.puente.length} día${np.puente.length === 1 ? '' : 's'} con el stock actual. Margen de seguridad ${fmt(margen * 100)} %.</p>`;
+    for (const g of grupos) {
+      html += `<h2>${esc(g.rubro)}</h2><div class="card"><div class="scrollx"><table class="ctl"><thead><tr><th>Insumo</th><th class="q">Consumo/día</th><th class="q">Stock</th><th class="q">Cubre</th><th class="q">Necesita</th><th class="q">Pedir</th></tr></thead><tbody>` +
+        g.items.map((f) => `<tr class="${f.pedir > 0 ? 'neg' : 'ok'}"><td><b>${esc(f.nombre)}</b><br><span class="sub">${esc(f.unidad)}${f.sinConteo ? ' · sin conteo' : ` · conteo ${esc(fechaCorta(f.stockFecha))}`}</span></td>
+          <td class="q">${fmt(f.diarioCompra)}<br><span class="sub">${fmt(f.diario)} ${esc(f.base)}</span></td><td class="q">${f.stock != null ? fmt(f.stock) : '—'}</td><td class="q">${f.cobertura != null ? `${fmt(f.cobertura)} d` : '—'}</td><td class="q">${fmt(f.necesita)}</td><td class="q desc">${f.pedir > 0 ? fmt(f.pedir) : '0'}</td></tr>`).join('') + `</tbody></table></div></div>`;
+    }
+    html += `<p class="lede">Las salsas de elaboración propia no se piden: están en Producción. "Necesita" es el consumo esperado hasta que llegue el pedido siguiente, en unidades de compra, con el margen. "Pedir" descuenta el último conteo. Los insumos sin ventas asociadas (descartables, limpieza) siguen con el pedido por mínimos en Stock.</p>`;
+    app.innerHTML = html;
+  }
+
+  function renderProduccionSugerida({ v, s, hoy }) {
+    const cons = calcularConsumo(v), pr = promedios(cons.salsas, cons.dias); const cerrados = new Set(CONS.dias_cerrados || []);
+    const stockPorId = {}; for (const i of s.insumos) stockPorId[i.id] = i;
+    let html = pedNav('produccion') + `<p class="lede">Cuánta salsa se consume según lo vendido, por día de semana. Para decidir cuánto producir hoy mirá el consumo esperado de los días que cubre la vida útil.</p>`;
+    for (const p of DATA.producciones) {
+      const e = pr[p.id]; if (!e) continue;
+      const vida = p.vida_util.dias || 1; const prox = []; let f = hoy;
+      while (prox.length < vida) { if (!cerrados.has(isoDow(f))) prox.push(f); f = addDias(f, 1); if (prox.length > 14) break; }
+      const total = prox.reduce((a, d) => a + esperado(e, isoDow(d)), 0); const batches = total / Number(p.batch.cantidad);
+      const ins = stockPorId[p.id]; const info = CONS.insumos[p.id];
+      html += `<div class="card"><strong style="font-size:22px">${esc(p.nombre)}</strong><div class="meta" style="margin-top:10px">
+        <div><span class="k">Hoy (${esc(DOW[isoDow(hoy)])})</span><span class="v">${fmt(esperado(e, isoDow(hoy)) / 1000)} kg</span></div>
+        <div><span class="k">Promedio/día</span><span class="v">${fmt(e.general / 1000)} kg</span></div>
+        <div><span class="k">${vida} día${vida === 1 ? '' : 's'} de vida útil</span><span class="v">${fmt(total / 1000)} kg · ${fmt(batches)} batch</span></div>
+        <div><span class="k">Último conteo</span><span class="v">${ins && ins.ultimo_cantidad != null && info ? `${fmt(ins.ultimo_cantidad)} ${esc(ins.unidad)} (${esc(fechaCorta(ins.ultimo_fecha))})` : '—'}</span></div>
+      </div><p class="lede" style="margin:10px 0 0">Por día: ${[1, 3, 4, 5, 6, 7].map((w) => `${DOW[w].slice(0, 3)} ${fmt(esperado(e, w) / 1000)}`).join(' · ')} kg. Vida útil: ${esc(p.vida_util.texto)}.</p>
+      <a class="btn secondary small" href="#/produccion/${esc(p.id)}">Abrir receta y escalar</a></div>`;
+    }
+    app.innerHTML = html;
+  }
+
+  function renderVentas({ v, hoy }) {
+    const fechas = (v.dias || []).map((d) => d.fecha).sort().slice(-7);
+    const prodNombre = (it) => it.tipo === 'cocina' ? (byId(DATA.productos, it.destino_id) || {}).nombre || it.producto_pos : it.producto_pos;
+    const porProd = {}; const dias = [...new Set((v.items || []).map((i) => i.fecha))].sort();
+    for (const it of (v.items || [])) { if (it.tipo === 'ignorar') continue; const k = prodNombre(it); porProd[k] = porProd[k] || { tipo: it.tipo, porDia: {} }; porProd[k].porDia[it.fecha] = (porProd[k].porDia[it.fecha] || 0) + Number(it.cantidad); }
+    const orden = ['cocina', 'bebida', 'trago', null];
+    const nombres = Object.keys(porProd).sort((a, b) => orden.indexOf(porProd[a].tipo) - orden.indexOf(porProd[b].tipo) || a.localeCompare(b));
+    let html = pedNav('ventas') + `<p class="lede">Ventas por producto según los reportes del sistema: últimos 7 días con reporte, promedio diario y promedio por día de semana (sobre ${dias.length} días).</p>`;
+    html += `<div class="card"><div class="scrollx"><table class="hist"><thead><tr><th>Producto</th>` + fechas.map((f) => `<th class="q">${esc(fechaCorta(f))}</th>`).join('') + `<th class="q">Prom</th><th class="q">Vie</th><th class="q">Sáb</th><th class="q">Dom</th></tr></thead><tbody>` +
+      nombres.map((n) => { const p = porProd[n]; const prm = promedios({ ...Object.fromEntries(dias.map((d) => [d, { x: p.porDia[d] || 0 }])) }, dias).x;
+        return `<tr><td><b>${esc(n)}</b><br><span class="sub">${esc(p.tipo || 'sin asignar')}</span></td>` + fechas.map((f, i) => `<td class="q ${i === fechas.length - 1 ? 'ult' : ''}">${p.porDia[f] != null ? fmt(p.porDia[f]) : '<span class="dash">—</span>'}</td>`).join('') +
+          `<td class="q">${fmt(prm.general)}</td><td class="q">${prm.dow[5] != null ? fmt(prm.dow[5]) : '—'}</td><td class="q">${prm.dow[6] != null ? fmt(prm.dow[6]) : '—'}</td><td class="q">${prm.dow[7] != null ? fmt(prm.dow[7]) : '—'}</td></tr>`; }).join('') + `</tbody></table></div></div>`;
+    const ult = [...(v.dias || [])].sort((a, b) => a.fecha < b.fecha ? 1 : -1).slice(0, 7);
+    html += `<h2>Caja por día</h2><div class="card"><table><tbody>` + ult.map((d) => `<tr><td><b>${esc(fechaLarga(d.fecha))}</b><br><span class="sub" style="color:var(--gray);font-size:14px">${d.pedidos != null ? `${fmt(d.pedidos)} pedidos · ` : ''}efectivo $ ${fmt(d.efectivo)} · MP $ ${fmt(d.mercado)}</span></td><td class="q">$ ${fmt(d.total)}</td></tr>`).join('') + `</tbody></table></div>`;
+    app.innerHTML = html;
+  }
+
   // ---------- 7. stock · conteo ----------
   const groupByRubro = (insumos) => {
     const out = [];
@@ -679,9 +834,11 @@
   }
 
   // ---------- arranque ----------
-  fetch('recetas.json', { cache: 'no-store' })
-    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then((d) => { DATA = d; route(); })
+  Promise.all([
+    fetch('recetas.json', { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+    fetch('consumos.json', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).catch(() => null)
+  ])
+    .then(([d, c]) => { DATA = d; CONS = c; route(); })
     .catch((err) => {
       app.innerHTML = `<p class="msg error">No se pudo cargar recetas.json (${esc(err.message)}).</p>
         <p class="msg">La web tiene que abrirse desde un servidor HTTP, no con doble clic sobre el archivo. Ver README.md.</p>`;

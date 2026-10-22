@@ -218,3 +218,12 @@ table.hist .dash { color: #bbb; }
 .tandas .k { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brand); font-weight: 800; font-family: var(--font-title); }
 .tandas b { font-size: 26px; color: var(--brand); font-family: var(--font-title); }
 .tandas .d { grid-column: 1 / -1; font-size: 15px; color: var(--gray); }
+
+/* ---------- pedidos ---------- */
+.btn.on { background: var(--brand); color: #fff; }
+table.ctl td, table.ctl th { padding: 8px 6px; white-space: nowrap; }
+table.ctl td.q { font-size: 16px; font-weight: 600; color: var(--gray); }
+table.ctl td.q.desc { font-size: 19px; font-weight: 800; color: var(--black); }
+table.ctl tr.neg td.q.desc { color: var(--brand); }
+table.ctl tr.neg td { background: #fbeef0; }
+table.ctl .sub { color: var(--gray); font-size: 12px; font-weight: 500; }

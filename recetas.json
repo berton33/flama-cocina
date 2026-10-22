@@ -468,6 +468,20 @@
         }
       ],
       "emplatado": null
+    },
+    {
+      "id": "papas-solas",
+      "nombre": "Papas solas",
+      "tipo": "fries",
+      "componentes": [
+        {
+          "orden": 1,
+          "componente": "Papas crispers",
+          "cantidad": 250,
+          "unidad": "g"
+        }
+      ],
+      "emplatado": null
     }
   ],
   "producciones": [
