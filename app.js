@@ -511,7 +511,7 @@
 
   function pedNav(sub) {
     return `<a class="back" href="#/">‹ Inicio</a><h1>Pedidos</h1>
-      <div class="btnrow three"><a class="btn secondary small ${sub === 'pedido' ? 'on' : ''}" href="#/pedidos/pedido">Pedido sugerido</a><a class="btn secondary small ${sub === 'produccion' ? 'on' : ''}" href="#/pedidos/produccion">Producción</a><a class="btn secondary small ${sub === 'ventas' ? 'on' : ''}" href="#/pedidos/ventas">Ventas</a></div>`;
+      <div class="btnrow" style="grid-template-columns:repeat(4,1fr)"><a class="btn secondary small ${sub === 'armar' ? 'on' : ''}" href="#/pedidos/armar" style="font-size:15px;padding:10px 4px">Armar pedido</a><a class="btn secondary small ${sub === 'pedido' ? 'on' : ''}" href="#/pedidos/pedido" style="font-size:15px;padding:10px 4px">Sugerido</a><a class="btn secondary small ${sub === 'produccion' ? 'on' : ''}" href="#/pedidos/produccion" style="font-size:15px;padding:10px 4px">Producción</a><a class="btn secondary small ${sub === 'ventas' ? 'on' : ''}" href="#/pedidos/ventas" style="font-size:15px;padding:10px 4px">Ventas</a></div>`;
   }
 
   // Consumo de insumos por día a partir de las ventas (productos de cocina) y las recetas.
@@ -585,7 +585,109 @@
     if (!(data.v.dias || []).length) { app.innerHTML = pedNav(sub) + `<div class="card"><p class="msg" style="padding:12px 0">No hay reportes de ventas cargados en los últimos 28 días. Se suben desde la web de salón.</p></div>`; return; }
     if (sub === 'ventas') return renderVentas(data);
     if (sub === 'produccion') return renderProduccionSugerida(data);
+    if (sub === 'armar') return renderArmarPedido(data);
     return renderPedidoSugerido(data);
+  }
+
+
+  // Plan urgente: se pide hoy, llega p_llega; cubre desde la llegada hasta el día anterior a la próxima entrega regular.
+  function planUrgente(hoy, llega) {
+    const cerrados = new Set(CONS.dias_cerrados || []);
+    const reg = proximoPedido(llega); // próxima entrega regular contada desde la llegada urgente
+    const puente = []; for (let f = hoy; f < llega; f = addDias(f, 1)) if (!cerrados.has(isoDow(f))) puente.push(f);
+    const cubre = []; for (let f = llega; f < reg.entrega; f = addDias(f, 1)) { if (!cerrados.has(isoDow(f))) cubre.push(f); if (cubre.length > 14) break; }
+    return { fechaPedido: hoy, entrega: llega, puente, cubre, hoyEsPedido: true, urgente: true, proximaRegular: reg.entrega };
+  }
+
+  // Cuánto pedir de cada cosa para un plan: necesita = (puente + cubre) × (1 + margen) − stock.
+  function cantidadAPedir(prom, plan, margen, stockBase, contenido) {
+    const necesitaBase = (plan.puente.reduce((a, f) => a + esperado(prom, isoDow(f)), 0) + plan.cubre.reduce((a, f) => a + esperado(prom, isoDow(f)), 0)) * (1 + margen);
+    const pedirBase = stockBase == null ? necesitaBase : Math.max(0, necesitaBase - stockBase);
+    return { necesita: necesitaBase / contenido, pedir: Math.ceil(pedirBase / contenido - 1e-9) };
+  }
+
+  // Consumo diario de bebidas (ventas directas + mixers de tragos) en su unidad de conteo.
+  function calcularConsumoBebidas(ventas, catalogo) {
+    const porDia = {}; const add = (f, k, v) => { porDia[f] = porDia[f] || {}; porDia[f][k] = (porDia[f][k] || 0) + v; };
+    const dias = new Set((ventas.dias || []).map((d) => d.fecha));
+    for (const it of (ventas.items || [])) {
+      if (it.tipo === 'bebida' && it.destino_id) add(it.fecha, it.destino_id, Number(it.cantidad));
+      if (it.tipo === 'trago' && it.destino_id) { const tr = (catalogo.tragos || []).find((x) => x.id === it.destino_id); if (tr) for (const r of tr.receta) add(it.fecha, r.bebida_id, Number(it.cantidad) * Number(r.cantidad)); }
+      dias.add(it.fecha);
+    }
+    return { porDia, dias: [...dias].sort() };
+  }
+
+  async function renderArmarPedido({ v, s, hoy }) {
+    let cat, sv;
+    try { [cat, sv] = await Promise.all([API.salonCatalogo(), API.salonStockVer(1)]); } catch (_) { cat = { bebidas: [], tragos: [] }; sv = { fechas: [], bebidas: [] }; }
+    const margen = Number(CONS.margen_seguridad || 0), provs = CONS.proveedores || {};
+    const cons = calcularConsumo(v), prIns = promedios(cons.insumos, cons.dias);
+    const cb = calcularConsumoBebidas(v, cat), prBeb = promedios(cb.porDia, cb.dias);
+    const stockIns = {}; for (const i of s.insumos) stockIns[i.id] = i;
+    const stockBeb = {}; for (const b of sv.bebidas) stockBeb[b.id] = b;
+    const fechaStockBeb = sv.fechas && sv.fechas[0];
+
+    let modo = 'regular', llega = addDias(hoy, 1);
+    const calcular = () => {
+      const plan = modo === 'regular' ? proximoPedido(hoy) : planUrgente(hoy, llega);
+      const lineas = [];
+      for (const [id, p] of Object.entries(prIns)) {
+        const info = CONS.insumos[id], ins = stockIns[id]; if (!info || !ins) continue;
+        if (DATA.producciones.some((pr) => pr.id === id)) continue;
+        const stockBase = ins.ultimo_cantidad != null ? Number(ins.ultimo_cantidad) * info.contenido : null;
+        const r = cantidadAPedir(p, plan, margen, stockBase, info.contenido);
+        lineas.push({ clave: `i:${id}`, nombre: ins.nombre, unidad: ins.unidad, pedir: r.pedir, stock: ins.ultimo_cantidad, stockFecha: ins.ultimo_fecha, proveedor: (provs.insumos || {})[id] || provs.por_defecto || 'Proveedor' });
+      }
+      for (const [id, p] of Object.entries(prBeb)) {
+        const b = (cat.bebidas || []).find((x) => x.id === id); if (!b || !b.activo) continue;
+        const sb = stockBeb[id]; const stock = sb && fechaStockBeb != null ? sb.stocks[fechaStockBeb] : null;
+        const contenido = b.unidad === 'ml' ? Number(b.capacidad_ml || 1) : 1; // destilados se piden por botella
+        const r = cantidadAPedir(p, plan, margen, stock != null ? Number(stock) : null, contenido);
+        lineas.push({ clave: `b:${id}`, nombre: b.nombre, unidad: b.unidad === 'ml' ? 'botellas' : b.unidad, pedir: r.pedir, stock: stock != null ? (b.unidad === 'ml' ? Number(stock) / contenido : Number(stock)) : null, stockFecha: fechaStockBeb, proveedor: (provs.bebidas || {})[id] || provs.bebidas_por_defecto || 'Bebidas' });
+      }
+      return { plan, lineas };
+    };
+
+    const paint = () => {
+      const { plan, lineas } = calcular();
+      const orden = provs.orden || [];
+      const grupos = []; for (const l of lineas) { let g = grupos.find((x) => x.prov === l.proveedor); if (!g) { g = { prov: l.proveedor, items: [] }; grupos.push(g); } g.items.push(l); }
+      grupos.sort((a, b) => (orden.indexOf(a.prov) === -1 ? 99 : orden.indexOf(a.prov)) - (orden.indexOf(b.prov) === -1 ? 99 : orden.indexOf(b.prov)));
+      for (const g of grupos) g.items.sort((a, b) => b.pedir - a.pedir || a.nombre.localeCompare(b.nombre));
+      const titulo = `Pedido FLAMA · ${modo === 'regular' ? `${DOW[isoDow(plan.fechaPedido)]} ${fechaCorta(plan.fechaPedido)}` : `URGENTE ${fechaCorta(hoy)}`} · entrega ${fechaCorta(plan.entrega)}`;
+      let html = pedNav('armar') + `
+        <div class="card">
+          <div class="btnrow"><button type="button" class="btn secondary small ${modo === 'regular' ? 'on' : ''}" id="ap-reg">Pedido regular</button><button type="button" class="btn secondary small ${modo === 'urgente' ? 'on' : ''}" id="ap-urg">Urgente</button></div>
+          ${modo === 'urgente' ? `<label class="field"><span>Llega el</span><input id="ap-llega" type="date" value="${llega}" min="${hoy}"></label>` : ''}
+          <p class="lede" style="margin:0">${modo === 'regular' ? `Próximo pedido regular: <b>${esc(DOW[isoDow(plan.fechaPedido)])} ${esc(fechaCorta(plan.fechaPedido))}</b>, llega el ${esc(fechaCorta(plan.entrega))}.` : `Pedido urgente: llega el <b>${esc(fechaCorta(plan.entrega))}</b> y tiene que alcanzar hasta la próxima entrega regular (${esc(fechaCorta(plan.proximaRegular))}).`} Cubre ${plan.cubre.map((f) => esc(DOW[isoDow(f)].slice(0, 3))).join(', ')}; el stock actual tiene que aguantar ${plan.puente.length} día${plan.puente.length === 1 ? '' : 's'}. Margen ${fmt(margen * 100)} %. Stock de cocina: último conteo; bebidas: cierre del ${fechaStockBeb ? esc(fechaCorta(fechaStockBeb)) : '—'}.</p>
+        </div>
+        <p class="lede">Cantidades sugeridas en unidades de compra. Podés corregirlas antes de copiar; en 0 no se incluyen.</p>`;
+      for (const g of grupos) {
+        const conPedido = g.items.filter((l) => l.pedir > 0);
+        html += `<div class="card prov" data-prov="${esc(g.prov)}"><div class="btnrow" style="align-items:center"><strong style="font-size:22px">${esc(g.prov)}</strong><button type="button" class="btn small ap-copy" style="margin:0">Copiar</button></div>
+          ${conPedido.length ? `<table style="margin-top:8px"><tbody>` + conPedido.map((l) => `<tr data-clave="${esc(l.clave)}" data-nombre="${esc(l.nombre)}" data-unidad="${esc(l.unidad)}"><td><b>${esc(l.nombre)}</b><br><span class="sub" style="color:var(--gray);font-size:13px">${esc(l.unidad)}${l.stock != null ? ` · hay ${fmt(l.stock)} (${esc(fechaCorta(l.stockFecha))})` : ' · sin conteo'}</span></td><td class="q" style="width:110px"><input class="ap-cant" type="text" inputmode="decimal" autocomplete="off" value="${l.pedir}" style="width:100px;font:inherit;font-size:22px;font-weight:800;text-align:right;padding:6px 8px;border:2px solid var(--black);border-radius:8px"></td></tr>`).join('') + `</tbody></table>` : `<p class="msg" style="padding:8px 0">Nada que pedir a este proveedor.</p>`}
+          <div class="ap-status"></div></div>`;
+      }
+      html += `<button type="button" class="btn" id="ap-copy-all">Copiar todo</button><div id="ap-all-status"></div>`;
+      app.innerHTML = html;
+
+      const textoDe = (card) => {
+        const lineas = Array.from(card.querySelectorAll('tr[data-clave]')).map((tr) => { const n = num(tr.querySelector('.ap-cant').value); return n != null && n > 0 ? `• ${fmt(n)} ${tr.dataset.unidad} ${tr.dataset.nombre}` : null; }).filter(Boolean);
+        return lineas.length ? `${titulo}\n${card.dataset.prov}:\n${lineas.join('\n')}` : '';
+      };
+      const copiar = async (texto, st) => {
+        if (!texto) { st.innerHTML = `<div class="status err">No hay líneas con cantidad.</div>`; return; }
+        try { await navigator.clipboard.writeText(texto); st.innerHTML = `<div class="status ok">Copiado. Pegalo en WhatsApp.</div>`; }
+        catch (_) { st.innerHTML = `<div class="status ok">Seleccioná y copiá:</div><textarea readonly style="width:100%;min-height:140px;font:inherit;font-size:15px;padding:8px">${esc(texto)}</textarea>`; }
+      };
+      app.querySelectorAll('.card.prov').forEach((card) => card.querySelector('.ap-copy').addEventListener('click', () => copiar(textoDe(card), card.querySelector('.ap-status'))));
+      document.getElementById('ap-copy-all').addEventListener('click', () => copiar(Array.from(app.querySelectorAll('.card.prov')).map(textoDe).filter(Boolean).join('\n\n'), document.getElementById('ap-all-status')));
+      document.getElementById('ap-reg').addEventListener('click', () => { modo = 'regular'; paint(); });
+      document.getElementById('ap-urg').addEventListener('click', () => { modo = 'urgente'; paint(); });
+      const ll = document.getElementById('ap-llega'); if (ll) ll.addEventListener('change', () => { if (ll.value && ll.value >= hoy) { llega = ll.value; paint(); } });
+    };
+    paint();
   }
 
   function renderPedidoSugerido({ v, s, hoy }) {

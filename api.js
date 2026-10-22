@@ -48,6 +48,9 @@
     conteoGuardar: (fecha, items) => rpc('flama_conteo_guardar', { p_fecha: fecha, p_items: items }),
     minimosGuardar: (p, items) => rpc('flama_minimos_guardar', { p_pin: p, p_items: items }),
     ventasRango: (desde, hasta) => rpc('ventas_rango', { p_desde: desde, p_hasta: hasta }),
-    ventasMapGet: () => rpc('ventas_map_get')
+    ventasMapGet: () => rpc('ventas_map_get'),
+    // Solo lectura del stock y catálogo de bebidas de salón, para armar el pedido de bebidas desde cocina.
+    salonStockVer: (n) => rpc('salon_stock_ver', { p_n: n || 1 }),
+    salonCatalogo: () => rpc('salon_catalogo')
   };
 })();
