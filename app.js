@@ -657,8 +657,13 @@
         const r = cantidadAPedir(p, plan, margen, stockBase, info.contenido);
         lineas.push({ clave: `i:${id}`, nombre: ins.nombre, unidad: ins.unidad, pedir: r.pedir, faltaPuente: r.faltaPuente, stock: ins.ultimo_cantidad, stockFecha: ins.ultimo_fecha, proveedor: (provs.insumos || {})[id] || provs.por_defecto || 'Proveedor' });
       }
+      // Envases vacíos: se informan para devolver, con el stock del último cierre de salón.
+      for (const b of (cat.bebidas || []).filter((x) => x.activo && x.envase)) {
+        const sb = stockBeb[b.id]; const stock = sb && fechaStockBeb != null ? sb.stocks[fechaStockBeb] : null;
+        lineas.push({ clave: `e:${b.id}`, nombre: b.nombre, unidad: b.unidad, pedir: stock != null ? Number(stock) : 0, faltaPuente: 0, devolver: true, stock, stockFecha: fechaStockBeb, proveedor: (provs.bebidas || {})[b.id] || provs.bebidas_por_defecto || 'Bebidas' });
+      }
       for (const [id, p] of Object.entries(prBeb)) {
-        const b = (cat.bebidas || []).find((x) => x.id === id); if (!b || !b.activo) continue;
+        const b = (cat.bebidas || []).find((x) => x.id === id); if (!b || !b.activo || b.envase) continue;
         const sb = stockBeb[id]; const stock = sb && fechaStockBeb != null ? sb.stocks[fechaStockBeb] : null;
         const contenido = b.unidad === 'ml' ? Number(b.capacidad_ml || 1) : 1; // destilados se piden por botella
         const r = cantidadAPedir(p, plan, margen, stock != null ? Number(stock) : null, contenido);
@@ -672,7 +677,7 @@
       const orden = provs.orden || [];
       const grupos = []; for (const l of lineas) { let g = grupos.find((x) => x.prov === l.proveedor); if (!g) { g = { prov: l.proveedor, items: [] }; grupos.push(g); } g.items.push(l); }
       grupos.sort((a, b) => (orden.indexOf(a.prov) === -1 ? 99 : orden.indexOf(a.prov)) - (orden.indexOf(b.prov) === -1 ? 99 : orden.indexOf(b.prov)));
-      for (const g of grupos) g.items.sort((a, b) => b.pedir - a.pedir || a.nombre.localeCompare(b.nombre));
+      for (const g of grupos) g.items.sort((a, b) => (a.devolver ? 1 : 0) - (b.devolver ? 1 : 0) || b.pedir - a.pedir || a.nombre.localeCompare(b.nombre));
       const titulo = `Pedido FLAMA · ${fechaCorta(hoy)} · entrega ${fechaCorta(plan.entrega)} · cubre hasta ${fechaCorta(plan.hasta)}`;
       const esRegular = llega === reg.entrega && hasta === reg.cubre[reg.cubre.length - 1];
       let html = pedNav('armar') + `
@@ -685,16 +690,16 @@
         </div>
         <p class="lede">Cantidades sugeridas en unidades de compra. Podés corregirlas antes de copiar; en 0 no se incluyen.</p>`;
       for (const g of grupos) {
-        const conPedido = g.items.filter((l) => l.pedir > 0 || l.faltaPuente > 0);
+        const conPedido = g.items.filter((l) => l.pedir > 0 || l.faltaPuente > 0 || l.devolver);
         html += `<div class="card prov" data-prov="${esc(g.prov)}"><div class="btnrow" style="align-items:center"><strong style="font-size:22px">${esc(g.prov)}</strong><button type="button" class="btn small ap-copy" style="margin:0">Copiar</button></div>
-          ${conPedido.length ? `<table style="margin-top:8px"><tbody>` + conPedido.map((l) => `<tr data-clave="${esc(l.clave)}" data-nombre="${esc(l.nombre)}" data-unidad="${esc(l.unidad)}"><td><b>${esc(l.nombre)}</b><br><span class="sub" style="color:var(--gray);font-size:13px">${esc(l.unidad)}${l.stock != null ? ` · hay ${fmt(l.stock)} (${esc(fechaCorta(l.stockFecha))})` : ' · sin conteo'}</span>${l.faltaPuente > 0 ? `<br><span class="sub" style="color:var(--brand);font-size:13px;font-weight:700">No llega a la entrega: faltan ${fmt(l.faltaPuente)} antes del ${esc(fechaCorta(plan.entrega))}</span>` : ''}</td><td class="q" style="width:110px"><input class="ap-cant" type="text" inputmode="decimal" autocomplete="off" value="${l.pedir}" style="width:100px;font:inherit;font-size:22px;font-weight:800;text-align:right;padding:6px 8px;border:2px solid var(--black);border-radius:8px"></td></tr>`).join('') + `</tbody></table>` : `<p class="msg" style="padding:8px 0">Nada que pedir a este proveedor.</p>`}
+          ${conPedido.length ? `<table style="margin-top:8px"><tbody>` + conPedido.map((l) => `<tr data-clave="${esc(l.clave)}" data-nombre="${esc(l.nombre)}" data-unidad="${esc(l.unidad)}" ${l.devolver ? 'data-devolver="1"' : ''}><td><b>${esc(l.nombre)}</b>${l.devolver ? ' <span class="badge soft">para devolver</span>' : ''}<br><span class="sub" style="color:var(--gray);font-size:13px">${esc(l.unidad)}${l.stock != null ? ` · ${l.devolver ? 'contados' : 'hay'} ${fmt(l.stock)} (${esc(fechaCorta(l.stockFecha))})` : ' · sin conteo'}</span>${l.faltaPuente > 0 ? `<br><span class="sub" style="color:var(--brand);font-size:13px;font-weight:700">No llega a la entrega: faltan ${fmt(l.faltaPuente)} antes del ${esc(fechaCorta(plan.entrega))}</span>` : ''}</td><td class="q" style="width:110px"><input class="ap-cant" type="text" inputmode="decimal" autocomplete="off" value="${l.pedir}" style="width:100px;font:inherit;font-size:22px;font-weight:800;text-align:right;padding:6px 8px;border:2px solid var(--black);border-radius:8px"></td></tr>`).join('') + `</tbody></table>` : `<p class="msg" style="padding:8px 0">Nada que pedir a este proveedor.</p>`}
           <div class="ap-status"></div></div>`;
       }
       html += `<button type="button" class="btn" id="ap-copy-all">Copiar todo</button><div id="ap-all-status"></div>`;
       app.innerHTML = html;
 
       const textoDe = (card) => {
-        const lineas = Array.from(card.querySelectorAll('tr[data-clave]')).map((tr) => { const n = num(tr.querySelector('.ap-cant').value); return n != null && n > 0 ? `• ${fmt(n)} ${tr.dataset.unidad} ${tr.dataset.nombre}` : null; }).filter(Boolean);
+        const lineas = Array.from(card.querySelectorAll('tr[data-clave]')).map((tr) => { const n = num(tr.querySelector('.ap-cant').value); if (n == null || n <= 0) return null; return tr.dataset.devolver ? `• Para devolver: ${fmt(n)} ${tr.dataset.nombre.toLowerCase()}` : `• ${fmt(n)} ${tr.dataset.unidad} ${tr.dataset.nombre}`; }).filter(Boolean);
         return lineas.length ? `${titulo}\n${card.dataset.prov}:\n${lineas.join('\n')}` : '';
       };
       const copiar = async (texto, st) => {

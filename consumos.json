@@ -444,7 +444,8 @@
     },
     "bebidas_por_defecto": "Coca Cola",
     "bebidas": {
-      "soda-estambul-500-ml": "Soda Estambul"
+      "soda-estambul-500-ml": "Soda Estambul",
+      "envases-soda-estambul": "Soda Estambul"
     },
     "orden": [
       "Hobs",
@@ -452,6 +453,7 @@
       "Coca Cola",
       "Soda Estambul",
       "Centralizada Marvel Food"
-    ]
+    ],
+    "envases_nota": "Las bebidas con envase=true (envases vacíos) se informan en el mensaje del proveedor como 'para devolver', con el stock del último cierre; no se piden."
   }
 }
